@@ -33,7 +33,7 @@ export const Route = createFileRoute("/")({
   component: PulseExperience,
 });
 
-type Stage = "hero" | "p1" | "p2" | "p3" | "transition" | "engine";
+type Stage = "hero" | "p1" | "p2" | "p3" | "transition" | "engine" | "flow";
 
 function PulseExperience() {
   const [lang, setLang] = useState<Lang>("en");
@@ -49,8 +49,11 @@ function PulseExperience() {
     p3: { active: 2, completed: 1 },
     transition: { active: 3, completed: 2 },
     engine: { active: 3, completed: 2 },
+    flow: { active: 3, completed: 2 },
   };
   const { active, completed } = stageMeta[stage];
+
+  const restart = () => setStage("hero");
 
   // Scroll to top on stage change
   useEffect(() => {
