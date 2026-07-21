@@ -9,6 +9,7 @@ import { Phase2Brief } from "@/components/pulse/Phase2Brief";
 import { Phase3Clarify } from "@/components/pulse/Phase3Clarify";
 import { CognitiveTransition } from "@/components/pulse/CognitiveTransition";
 import { CognitiveEngine } from "@/components/pulse/CognitiveEngine";
+import { FlowDelivery } from "@/components/pulse/FlowDelivery";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -32,7 +33,7 @@ export const Route = createFileRoute("/")({
   component: PulseExperience,
 });
 
-type Stage = "hero" | "p1" | "p2" | "p3" | "transition" | "engine";
+type Stage = "hero" | "p1" | "p2" | "p3" | "transition" | "engine" | "flow";
 
 function PulseExperience() {
   const [lang, setLang] = useState<Lang>("en");
@@ -48,8 +49,11 @@ function PulseExperience() {
     p3: { active: 2, completed: 1 },
     transition: { active: 3, completed: 2 },
     engine: { active: 3, completed: 2 },
+    flow: { active: 3, completed: 2 },
   };
   const { active, completed } = stageMeta[stage];
+
+  const restart = () => setStage("hero");
 
   // Scroll to top on stage change
   useEffect(() => {
@@ -66,7 +70,9 @@ function PulseExperience() {
             <Hero t={t} onStart={() => setStage("p1")} />
           </div>
         ) : stage === "engine" ? (
-          <CognitiveEngine />
+          <CognitiveEngine onValidate={() => setStage("flow")} />
+        ) : stage === "flow" ? (
+          <FlowDelivery onRestart={restart} />
         ) : (
           <div className="mx-auto max-w-[1240px] px-6 lg:px-10 pt-14 pb-24">
             <div className="grid lg:grid-cols-[220px_1fr] gap-14">
