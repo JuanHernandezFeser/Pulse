@@ -1082,7 +1082,7 @@ function buildExecutivePdf(): string {
   });
   output += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`;
 
-  return new TextEncoder().encode(output);
+  return output;
 }
 
 function escapePdf(s: string) {
