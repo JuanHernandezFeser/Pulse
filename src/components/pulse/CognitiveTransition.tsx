@@ -2,15 +2,18 @@ import { useEffect, useState } from "react";
 import type { Dict } from "@/lib/pulse-i18n";
 import { PulseMark } from "./PulseMark";
 
-export function CognitiveTransition({ t }: { t: Dict }) {
+export function CognitiveTransition({ t, onDone }: { t: Dict; onDone?: () => void }) {
   const lines = [t.transition.l1, t.transition.l2, t.transition.l3];
   const [step, setStep] = useState(0);
 
   useEffect(() => {
-    if (step >= lines.length - 1) return;
+    if (step >= lines.length - 1) {
+      const id = setTimeout(() => onDone?.(), 1400);
+      return () => clearTimeout(id);
+    }
     const id = setTimeout(() => setStep((s) => s + 1), 1800);
     return () => clearTimeout(id);
-  }, [step, lines.length]);
+  }, [step, lines.length, onDone]);
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/95 backdrop-blur-xl animate-soft-in">
