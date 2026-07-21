@@ -165,4 +165,4 @@ export const translations = {
   },
 } as const;
 
-export type Dict = typeof translations["en"];
+export type Dict = (typeof translations)[Lang];
