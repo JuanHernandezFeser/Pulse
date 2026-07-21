@@ -163,6 +163,6 @@ export const translations = {
     footer1: "Powered by PULSE Cognitive Intelligence",
     footer2: "Plataforma de Inteligencia de Producto Enterprise",
   },
-} as const;
+};
 
 export type Dict = (typeof translations)[Lang];
