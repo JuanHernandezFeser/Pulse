@@ -1020,7 +1020,7 @@ function FinalScreen({ onRestart }: { onRestart?: () => void }) {
 
 /* --------------------------- Minimal PDF builder --------------------------- */
 
-function buildExecutivePdf(): Uint8Array {
+function buildExecutivePdf(): string {
   const lines = [
     "PULSE Executive Report",
     "",
