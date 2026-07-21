@@ -372,7 +372,7 @@ function FlowValidation({ onGenerate }: { onGenerate: () => void }) {
                 <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-violet-500/20 blur-3xl" aria-hidden />
                 <div className="relative flex flex-col gap-6">
                   <div className="inline-flex items-center gap-2 self-start rounded-full border border-background/20 bg-background/10 px-3 py-1">
-                    <PulseMark size={14} tone="light" />
+                    <PulseMark size={14} />
                     <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-background/80">
                       PULSE Recommendation
                     </span>
