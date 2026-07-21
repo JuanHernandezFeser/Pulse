@@ -8,6 +8,7 @@ import { Phase1Connect } from "@/components/pulse/Phase1Connect";
 import { Phase2Brief } from "@/components/pulse/Phase2Brief";
 import { Phase3Clarify } from "@/components/pulse/Phase3Clarify";
 import { CognitiveTransition } from "@/components/pulse/CognitiveTransition";
+import { CognitiveEngine } from "@/components/pulse/CognitiveEngine";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -31,7 +32,7 @@ export const Route = createFileRoute("/")({
   component: PulseExperience,
 });
 
-type Stage = "hero" | "p1" | "p2" | "p3" | "transition";
+type Stage = "hero" | "p1" | "p2" | "p3" | "transition" | "engine";
 
 function PulseExperience() {
   const [lang, setLang] = useState<Lang>("en");
@@ -46,6 +47,7 @@ function PulseExperience() {
     p2: { active: 1, completed: 0 },
     p3: { active: 2, completed: 1 },
     transition: { active: 3, completed: 2 },
+    engine: { active: 3, completed: 2 },
   };
   const { active, completed } = stageMeta[stage];
 
