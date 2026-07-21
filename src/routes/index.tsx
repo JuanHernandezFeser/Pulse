@@ -9,6 +9,7 @@ import { Phase2Brief } from "@/components/pulse/Phase2Brief";
 import { Phase3Clarify } from "@/components/pulse/Phase3Clarify";
 import { CognitiveTransition } from "@/components/pulse/CognitiveTransition";
 import { CognitiveEngine } from "@/components/pulse/CognitiveEngine";
+import { FlowDelivery } from "@/components/pulse/FlowDelivery";
 
 export const Route = createFileRoute("/")({
   head: () => ({
