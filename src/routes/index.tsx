@@ -65,6 +65,8 @@ function PulseExperience() {
           <div className="mx-auto max-w-[1240px] px-6 lg:px-10">
             <Hero t={t} onStart={() => setStage("p1")} />
           </div>
+        ) : stage === "engine" ? (
+          <CognitiveEngine />
         ) : (
           <div className="mx-auto max-w-[1240px] px-6 lg:px-10 pt-14 pb-24">
             <div className="grid lg:grid-cols-[220px_1fr] gap-14">
@@ -108,7 +110,9 @@ function PulseExperience() {
         </div>
       </footer>
 
-      {stage === "transition" && <CognitiveTransition t={t} />}
+      {stage === "transition" && (
+        <CognitiveTransition t={t} onDone={() => setStage("engine")} />
+      )}
     </div>
   );
 }
