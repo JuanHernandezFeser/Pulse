@@ -70,7 +70,9 @@ function PulseExperience() {
             <Hero t={t} onStart={() => setStage("p1")} />
           </div>
         ) : stage === "engine" ? (
-          <CognitiveEngine />
+          <CognitiveEngine onValidate={() => setStage("flow")} />
+        ) : stage === "flow" ? (
+          <FlowDelivery onRestart={restart} />
         ) : (
           <div className="mx-auto max-w-[1240px] px-6 lg:px-10 pt-14 pb-24">
             <div className="grid lg:grid-cols-[220px_1fr] gap-14">
