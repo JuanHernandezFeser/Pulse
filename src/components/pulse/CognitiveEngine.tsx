@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dict } from "@/lib/pulse-i18n";
+import type { ScenarioData } from "@/lib/scenarios";
 import { PulseMark } from "./PulseMark";
 import { BackButton } from "./BackButton";
 
@@ -7,10 +8,12 @@ const FINAL_STEP = 14;
 
 export function CognitiveEngine({
   t,
+  scenario,
   onValidate,
   onBack,
 }: {
   t: Dict;
+  scenario: ScenarioData;
   onValidate?: () => void;
   onBack?: () => void;
 }) {
@@ -61,19 +64,19 @@ export function CognitiveEngine({
         <div className="min-w-0 flex flex-col gap-20">
           <EngineHeader t={t} />
 
-          <MarketModeling t={t} step={step} />
+          <MarketModeling t={t} scenario={scenario} step={step} />
 
-          {step >= 4 && <CompetitiveLandscape t={t} step={step} />}
+          {step >= 4 && <CompetitiveLandscape t={t} scenario={scenario} step={step} />}
 
-          {step >= 7 && <Benchmark t={t} step={step} />}
+          {step >= 7 && <Benchmark t={t} scenario={scenario} step={step} />}
 
-          {step >= 9 && <FeatureGaps t={t} />}
+          {step >= 9 && <FeatureGaps t={t} scenario={scenario} />}
 
-          {step >= 10 && <EvidenceCollection t={t} step={step} />}
+          {step >= 10 && <EvidenceCollection t={t} scenario={scenario} step={step} />}
 
-          {step >= 12 && <ResultsBlock t={t} />}
+          {step >= 12 && <ResultsBlock t={t} scenario={scenario} />}
 
-          {step >= 13 && <ConfidenceEngine t={t} />}
+          {step >= 13 && <ConfidenceEngine t={t} scenario={scenario} />}
 
           {step >= 14 && <PulseConclusion t={t} onValidate={onValidate} />}
         </div>
@@ -200,11 +203,11 @@ function Section({
   );
 }
 
-function MarketModeling({ t, step }: { t: Dict; step: number }) {
+function MarketModeling({ t, scenario, step }: { t: Dict; scenario: ScenarioData; step: number }) {
   return (
     <Section eyebrow={t.engine.market.eyebrow} title={t.engine.market.title}>
       <div className="grid sm:grid-cols-2 gap-3">
-        {t.engine.market.cards.map((c, i) => (
+        {scenario.marketCards.map((c, i) => (
           <RevealCard key={c.label} show={step >= i + 1} delayIndex={i}>
             <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70 font-medium mb-2">
               {c.label}
@@ -226,7 +229,7 @@ function MarketModeling({ t, step }: { t: Dict; step: number }) {
           {t.engine.market.intentTitle}
         </div>
         <ul className="flex flex-col gap-2.5">
-          {t.engine.market.intents.map((line, i) => (
+          {scenario.marketIntents.map((line, i) => (
             <li
               key={line}
               className="flex items-center gap-3 text-[14.5px] text-foreground"
@@ -247,13 +250,11 @@ function MarketModeling({ t, step }: { t: Dict; step: number }) {
   );
 }
 
-const COMPETITORS = ["Stripe", "Ramp", "Mercury", "Brex", "Rippling"];
-
-function CompetitiveLandscape({ t, step }: { t: Dict; step: number }) {
+function CompetitiveLandscape({ t, scenario, step }: { t: Dict; scenario: ScenarioData; step: number }) {
   return (
     <Section eyebrow={t.engine.competitive.eyebrow} title={t.engine.competitive.title}>
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        {COMPETITORS.map((c, i) => (
+        {scenario.competitors.map((c, i) => (
           <RevealCard key={c} show={step >= 4} delayIndex={i} compact>
             <div className="flex flex-col gap-2">
               <div className="text-[15px] font-semibold tracking-tight text-foreground">{c}</div>
@@ -278,29 +279,21 @@ function CompetitiveLandscape({ t, step }: { t: Dict; step: number }) {
           </div>
           <div className="text-[18px] font-semibold tracking-tight">{t.engine.competitive.completed}</div>
         </div>
-        <div className="text-[13px] text-background/70">{t.engine.competitive.mapped}</div>
+        <div className="text-[13px] text-background/70">{t.engine.competitive.mapped.replace("{n}", String(scenario.competitors.length))}</div>
       </div>
     </Section>
   );
 }
 
-const BENCH = [
-  { name: "Stripe", features: 184 },
-  { name: "Ramp", features: 171 },
-  { name: "Mercury", features: 166 },
-  { name: "Brex", features: 179 },
-  { name: "Rippling", features: 193 },
-];
-
-function Benchmark({ t, step }: { t: Dict; step: number }) {
-  const max = Math.max(...BENCH.map((b) => b.features));
+function Benchmark({ t, scenario, step }: { t: Dict; scenario: ScenarioData; step: number }) {
+  const max = Math.max(...scenario.bench.map((b) => b.features));
   const fill = step >= 8;
   const done = step >= 9;
 
   return (
     <Section eyebrow={t.engine.benchmark.eyebrow} title={t.engine.benchmark.title}>
       <div className="grid grid-cols-5 gap-3">
-        {BENCH.map((b, i) => {
+        {scenario.bench.map((b, i) => {
           const h = (b.features / max) * 100;
           return (
             <RevealCard key={b.name} show delayIndex={i} compact>
@@ -362,9 +355,7 @@ function Benchmark({ t, step }: { t: Dict; step: number }) {
   );
 }
 
-const GAP_VALUES = [31, 12, 11, 8];
-
-function FeatureGaps({ t }: { t: Dict }) {
+function FeatureGaps({ t, scenario }: { t: Dict; scenario: ScenarioData }) {
   return (
     <Section eyebrow={t.engine.gaps.eyebrow} title={t.engine.gaps.title}>
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -374,7 +365,7 @@ function FeatureGaps({ t }: { t: Dict }) {
               {g.label}
             </div>
             <div className="text-[40px] font-semibold tracking-[-0.03em] text-foreground leading-none tabular-nums">
-              {GAP_VALUES[i]}
+              {scenario.gapValues[i]}
             </div>
             <div className="mt-3 text-[12.5px] leading-relaxed text-muted-foreground">
               {g.desc}
@@ -386,26 +377,7 @@ function FeatureGaps({ t }: { t: Dict }) {
   );
 }
 
-const SOURCES = [
-  "Gartner",
-  "NNGroup",
-  "G2",
-  "Google Scholar",
-  "GitHub",
-  "Official Documentation",
-  "Developer Blogs",
-  "Product Hunt",
-  "Stack Overflow",
-  "Reddit",
-  "LinkedIn Engineering",
-  "Release Notes",
-  "Public APIs",
-  "Open Source Projects",
-  "Customer Reviews",
-  "Technical Articles",
-];
-
-function EvidenceCollection({ t, step }: { t: Dict; step: number }) {
+function EvidenceCollection({ t, scenario, step }: { t: Dict; scenario: ScenarioData; step: number }) {
   const [tick, setTick] = useState(0);
   useEffect(() => {
     if (step < 10) return;
@@ -416,7 +388,7 @@ function EvidenceCollection({ t, step }: { t: Dict; step: number }) {
   return (
     <Section eyebrow={t.engine.evidence.eyebrow} title={t.engine.evidence.title}>
       <div className="flex flex-wrap gap-2">
-        {SOURCES.map((s, i) => {
+        {scenario.sources.map((s, i) => {
           const active = tick > i;
           const state = t.engine.evidence.states[(i + Math.floor(tick / 3)) % t.engine.evidence.states.length];
           return (
@@ -452,10 +424,10 @@ function EvidenceCollection({ t, step }: { t: Dict; step: number }) {
   );
 }
 
-function ResultsBlock({ t }: { t: Dict }) {
+function ResultsBlock({ t, scenario }: { t: Dict; scenario: ScenarioData }) {
   return (
     <section className="animate-soft-in grid grid-cols-2 sm:grid-cols-5 gap-3">
-      {t.engine.results.map((r, i) => (
+      {scenario.results.map((r, i) => (
         <RevealCard key={r.label} show delayIndex={i} compact>
           <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70 font-medium mb-2">
             {r.label}
@@ -469,7 +441,8 @@ function ResultsBlock({ t }: { t: Dict }) {
   );
 }
 
-function ConfidenceEngine({ t }: { t: Dict }) {
+function ConfidenceEngine({ t, scenario }: { t: Dict; scenario: ScenarioData }) {
+  const confidencePercent = parseInt(scenario.overallConfidence);
   return (
     <section className="animate-soft-in rounded-2xl border border-border bg-surface-elevated/70 p-8">
       <div className="grid lg:grid-cols-[280px_1fr] gap-10 items-center">
@@ -479,7 +452,7 @@ function ConfidenceEngine({ t }: { t: Dict }) {
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-[64px] font-semibold tracking-[-0.03em] text-foreground leading-none tabular-nums">
-              94
+              {confidencePercent}
             </span>
             <span className="text-[22px] font-medium text-muted-foreground">%</span>
           </div>
@@ -487,14 +460,14 @@ function ConfidenceEngine({ t }: { t: Dict }) {
             <div
               className="h-full bg-foreground rounded-full"
               style={{
-                width: "94%",
+                width: `${confidencePercent}%`,
                 animation: "soft-in 1.2s cubic-bezier(0.22,1,0.36,1) both",
               }}
             />
           </div>
         </div>
         <div className="grid sm:grid-cols-2 gap-3">
-          {t.engine.confidence.items.map((c, i) => (
+          {scenario.confidenceItems.map((c, i) => (
             <div
               key={c.label}
               className="rounded-xl border border-border bg-surface p-4 flex items-center justify-between"

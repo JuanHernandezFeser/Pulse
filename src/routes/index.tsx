@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { translations, type Lang } from "@/lib/pulse-i18n";
+import { scenariosRaw, localizeScenario, type ScenarioData } from "@/lib/scenarios";
 import { TopBar } from "@/components/pulse/TopBar";
 import { Timeline } from "@/components/pulse/Timeline";
 import { Hero } from "@/components/pulse/Hero";
@@ -43,6 +44,8 @@ function PulseExperience() {
   const [jiraState, setJiraState] = useState<JiraState>("idle");
   const [brief, setBrief] = useState("");
   const [answers, setAnswers] = useState<(string | null)[]>([null, null, null]);
+  const [scenarioIndex, setScenarioIndex] = useState<number>(0);
+  const scenario: ScenarioData = useMemo(() => localizeScenario(scenariosRaw[scenarioIndex], lang), [scenarioIndex, lang]);
 
   const t = translations[lang];
 
@@ -61,6 +64,7 @@ function PulseExperience() {
     setJiraState("idle");
     setBrief("");
     setAnswers([null, null, null]);
+    setScenarioIndex(0);
     setStage("hero");
   };
 
@@ -80,12 +84,14 @@ function PulseExperience() {
         ) : stage === "engine" ? (
           <CognitiveEngine
             t={t}
+            scenario={scenario}
             onValidate={() => setStage("flow")}
             onBack={() => setStage("p3")}
           />
         ) : stage === "flow" ? (
           <FlowDelivery
             t={t}
+            scenario={scenario}
             onRestart={restart}
             onBackToEngine={() => setStage("engine")}
           />
@@ -114,6 +120,7 @@ function PulseExperience() {
                       setBrief(b);
                       setStage("p3");
                     }}
+                    onScenarioSelect={setScenarioIndex}
                     onBack={() => setStage("p1")}
                   />
                 )}

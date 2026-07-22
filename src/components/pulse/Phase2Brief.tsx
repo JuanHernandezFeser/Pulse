@@ -8,18 +8,21 @@ export function Phase2Brief({
   value,
   onValueChange,
   onContinue,
+  onScenarioSelect,
   onBack,
 }: {
   t: Dict;
   value: string;
   onValueChange: (v: string) => void;
   onContinue: (brief: string) => void;
+  onScenarioSelect?: (index: number) => void;
   onBack?: () => void;
 }) {
   const areaRef = useRef<HTMLTextAreaElement>(null);
 
-  const pick = (text: string) => {
+  const pick = (text: string, index: number) => {
     onValueChange(text);
+    onScenarioSelect?.(index);
     requestAnimationFrame(() => areaRef.current?.focus());
   };
 
@@ -89,7 +92,7 @@ export function Phase2Brief({
             {t.p2.opts.map((opt, i) => (
               <button
                 key={i}
-                onClick={() => pick(opt)}
+                onClick={() => pick(opt, i)}
                 className="group text-left rounded-xl border border-border bg-surface-elevated hover:bg-accent hover:border-border-strong transition-all duration-300 p-4"
               >
                 <div className="flex items-start gap-3">

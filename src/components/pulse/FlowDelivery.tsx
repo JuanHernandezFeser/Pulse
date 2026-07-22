@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dict } from "@/lib/pulse-i18n";
+import type { ScenarioData } from "@/lib/scenarios";
 import { PulseMark } from "./PulseMark";
 import { BackButton } from "./BackButton";
 
@@ -13,10 +14,12 @@ type Phase =
 
 export function FlowDelivery({
   t,
+  scenario,
   onRestart,
   onBackToEngine,
 }: {
   t: Dict;
+  scenario: ScenarioData;
   onRestart?: () => void;
   onBackToEngine?: () => void;
 }) {
@@ -47,6 +50,7 @@ export function FlowDelivery({
       {phase === "flow" && (
         <FlowValidation
           t={t}
+          scenario={scenario}
           onGenerate={() => setPhase("blueprint-transition")}
           onBack={onBackToEngine}
         />
@@ -55,6 +59,7 @@ export function FlowDelivery({
       {phase === "blueprint" && (
         <Blueprint
           t={t}
+          scenario={scenario}
           onReady={() => setPhase("delivery")}
           onBack={() => setPhase("flow")}
         />
@@ -63,6 +68,7 @@ export function FlowDelivery({
       {phase === "delivery" && (
         <DeliveryHub
           t={t}
+          scenario={scenario}
           onFinish={() => setPhase("final")}
           onRestart={onRestart}
           onBack={() => setPhase("blueprint")}
@@ -70,7 +76,7 @@ export function FlowDelivery({
       )}
 
       {phase === "final" && (
-        <FinalScreen t={t} onRestart={onRestart} onBack={() => setPhase("delivery")} />
+        <FinalScreen t={t} scenario={scenario} onRestart={onRestart} onBack={() => setPhase("delivery")} />
       )}
     </>
   );
@@ -210,10 +216,12 @@ function TimelineNav({
 
 function FlowValidation({
   t,
+  scenario,
   onGenerate,
   onBack,
 }: {
   t: Dict;
+  scenario: ScenarioData;
   onGenerate: () => void;
   onBack?: () => void;
 }) {
@@ -267,7 +275,7 @@ function FlowValidation({
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            {t.flow.panels.map((p, i) => (
+            {scenario.flowPanels.map((p, i) => (
               <div
                 key={p.label}
                 className={[
@@ -291,18 +299,18 @@ function FlowValidation({
               <div className="grid md:grid-cols-2 gap-4">
                 <EvidenceCard
                   t={t}
-                  title={t.flow.cases[0].title}
+                  title={scenario.flowCases[0].title}
                   status="validated"
                   confidence="94%"
-                  evidence={t.flow.cases[0].evidence}
+                  evidence={scenario.flowCases[0].evidence}
                 />
                 <EvidenceCard
                   t={t}
-                  title={t.flow.cases[1].title}
+                  title={scenario.flowCases[1].title}
                   status="rejected"
                   confidence="18%"
-                  evidence={t.flow.cases[1].evidence}
-                  reason={t.flow.cases[1].reason}
+                  evidence={scenario.flowCases[1].evidence}
+                  reason={scenario.flowCases[1].reason}
                 />
               </div>
             </section>
@@ -312,7 +320,7 @@ function FlowValidation({
             <section className="flex flex-col gap-6 animate-soft-in">
               <SectionTitle overline={t.flow.matrixOverline} title={t.flow.matrixTitle} />
               <div className="grid md:grid-cols-3 gap-4">
-                {t.flow.matrix.map((m, i) => (
+                {scenario.flowMatrix.map((m, i) => (
                   <MatrixCard
                     key={m.opportunity}
                     t={t}
@@ -337,7 +345,7 @@ function FlowValidation({
                       {t.flow.confidenceEngine}
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                      {t.flow.confidenceMini.map((m) => (
+                      {scenario.confidenceMini.map((m) => (
                         <MiniStat key={m.label} label={m.label} value={m.value} />
                       ))}
                     </div>
@@ -347,7 +355,7 @@ function FlowValidation({
                       {t.flow.overallConfidence}
                     </div>
                     <div className="text-[56px] leading-none font-semibold tracking-tight text-foreground">
-                      94%
+                      {scenario.overallConfidence}
                     </div>
                   </div>
                 </div>
@@ -368,10 +376,10 @@ function FlowValidation({
                     </span>
                   </div>
                   <h3 className="text-[28px] sm:text-[34px] leading-[1.1] font-semibold tracking-[-0.02em] max-w-3xl">
-                    {t.flow.recommendationTitle}
+                    {scenario.recommendationTitle}
                   </h3>
                   <ul className="grid sm:grid-cols-2 gap-x-8 gap-y-2 text-[14px] text-background/80">
-                    {t.flow.reasons.map((r) => (
+                    {scenario.reasons.map((r) => (
                       <li key={r} className="flex items-start gap-2">
                         <span className="mt-[7px] h-1 w-1 rounded-full bg-background/70" />
                         {r}
@@ -513,10 +521,12 @@ function MiniStat({ label, value }: { label: string; value: string }) {
 
 function Blueprint({
   t,
+  scenario,
   onReady,
   onBack,
 }: {
   t: Dict;
+  scenario: ScenarioData;
   onReady: () => void;
   onBack?: () => void;
 }) {
@@ -676,11 +686,13 @@ function ArtifactIcon({ index }: { index: number }) {
 
 function DeliveryHub({
   t,
+  scenario,
   onFinish,
   onRestart,
   onBack,
 }: {
   t: Dict;
+  scenario: ScenarioData;
   onFinish: () => void;
   onRestart?: () => void;
   onBack?: () => void;
@@ -699,7 +711,7 @@ function DeliveryHub({
     [t.engine.timeline]
   );
 
-  const jiraLines = t.delivery.jira.lines;
+  const jiraLines = scenario.jiraLines;
 
   const publishJira = () => {
     if (jiraStep >= 0) return;
@@ -715,7 +727,7 @@ function DeliveryHub({
     if (pdfState !== "idle") return;
     setPdfState("generating");
     setTimeout(() => {
-      const pdf = buildExecutivePdf(t);
+      const pdf = buildExecutivePdf(t, scenario);
       const blob = new Blob([pdf], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -828,7 +840,7 @@ function DeliveryHub({
               subtitle={t.delivery.pkg.subtitle}
               cta={t.delivery.pkg.cta}
               onClick={() => {
-                const blob = new Blob([JSON.stringify({ package: "PULSE Engineering Package", artifacts: t.blueprint.artifacts }, null, 2)], {
+                const blob = new Blob([JSON.stringify({ package: "PULSE Engineering Package", scenario: scenario.title, artifacts: t.blueprint.artifacts }, null, 2)], {
                   type: "application/json",
                 });
                 const url = URL.createObjectURL(blob);
@@ -949,10 +961,12 @@ function ActionCard({
 
 function FinalScreen({
   t,
+  scenario,
   onRestart,
   onBack,
 }: {
   t: Dict;
+  scenario: ScenarioData;
   onRestart?: () => void;
   onBack?: () => void;
 }) {
@@ -986,26 +1000,26 @@ function FinalScreen({
   );
 }
 
-function buildExecutivePdf(t: Dict): string {
+function buildExecutivePdf(t: Dict, scenario: ScenarioData): string {
   const lines = [
     t.pdf.heading,
     "",
     t.pdf.s1,
-    t.pdf.s1body,
+    scenario.pdf.s1body,
     "",
     t.pdf.s2,
-    t.pdf.s2body,
+    scenario.pdf.s2body,
     "",
     t.pdf.s3,
-    t.pdf.s3a,
-    t.pdf.s3b,
-    t.pdf.s3c,
+    scenario.pdf.s3a,
+    scenario.pdf.s3b,
+    scenario.pdf.s3c,
     "",
     t.pdf.s4,
-    t.pdf.s4body,
+    scenario.pdf.s4body,
     "",
     t.pdf.s5,
-    t.pdf.s5body,
+    scenario.pdf.s5body,
   ];
 
   const header = "%PDF-1.4\n";
