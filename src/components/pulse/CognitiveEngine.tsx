@@ -1,44 +1,30 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { Dict } from "@/lib/pulse-i18n";
 import { PulseMark } from "./PulseMark";
+import { BackButton } from "./BackButton";
 
-const TIMELINE = [
-  { key: "workspace", label: "Workspace" },
-  { key: "brief", label: "Brief" },
-  { key: "context", label: "Context" },
-  { key: "market", label: "Market Modeling" },
-  { key: "competitive", label: "Competitive Intelligence" },
-  { key: "evidence", label: "Evidence Collection" },
-  { key: "flow", label: "FLOW Validation" },
-  { key: "recommendation", label: "Recommendation" },
-  { key: "blueprint", label: "Blueprint" },
-  { key: "delivery", label: "Delivery" },
-] as const;
-
-// Sub-phase indices (map to timeline)
-// 3 = market, 4 = competitive+benchmark+gaps, 5 = evidence
-// Steps drive progressive reveal on the right column.
-// 0..3   Market Modeling reveals
-// 4..6   Competitive Landscape reveals
-// 7..8   Benchmark reveal + bars
-// 9      Feature Gap cards
-// 10..11 Evidence collection
-// 12     Results
-// 13     Confidence
-// 14     Conclusion + CTAs
 const FINAL_STEP = 14;
 
-export function CognitiveEngine({ onValidate }: { onValidate?: () => void }) {
+export function CognitiveEngine({
+  t,
+  onValidate,
+  onBack,
+}: {
+  t: Dict;
+  onValidate?: () => void;
+  onBack?: () => void;
+}) {
   const [step, setStep] = useState(0);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
     const schedule = [
-      600, 700, 700, 900, // market cards
-      900, 500, 500, // competitors trickle
-      900, 1400, // benchmark bars fill
-      900, // gaps
-      1200, 1000, // evidence + results
-      900, 900, // confidence + conclusion
+      600, 700, 700, 900,
+      900, 500, 500,
+      900, 1400,
+      900,
+      1200, 1000,
+      900, 900,
     ];
     let acc = 0;
     schedule.forEach((delay, i) => {
@@ -52,93 +38,89 @@ export function CognitiveEngine({ onValidate }: { onValidate?: () => void }) {
     };
   }, []);
 
-  // Timeline states
-  // completed 0..2 always (workspace, brief, context)
-  // market running when step < 4, completed at >=4
-  // competitive running 4..9 (through benchmark+gaps), completed at >=10
-  // evidence running 10..11, completed >=12
   const timelineState = useMemo(() => {
-    return TIMELINE.map((_, i) => {
+    return t.engine.timeline.map((_, i) => {
       if (i <= 2) return "completed" as const;
       if (i === 3) return step >= 4 ? "completed" : "running";
       if (i === 4) return step >= 10 ? "completed" : step >= 4 ? "running" : "pending";
       if (i === 5) return step >= 12 ? "completed" : step >= 10 ? "running" : "pending";
       return "pending" as const;
     });
-  }, [step]);
+  }, [step, t.engine.timeline]);
 
   return (
-    <div className="mx-auto max-w-[1240px] px-6 lg:px-10 pt-14 pb-32">
+    <div className="mx-auto max-w-[1240px] px-6 lg:px-10 pt-6 pb-32">
+      <div className="mb-6">
+        <BackButton t={t} onBack={onBack} />
+      </div>
       <div className="grid lg:grid-cols-[240px_1fr] gap-14">
         <aside>
-          <EngineTimeline states={timelineState} />
+          <EngineTimeline t={t} states={timelineState} />
         </aside>
 
         <div className="min-w-0 flex flex-col gap-20">
-          <EngineHeader />
+          <EngineHeader t={t} />
 
-          <MarketModeling step={step} />
+          <MarketModeling t={t} step={step} />
 
-          {step >= 4 && <CompetitiveLandscape step={step} />}
+          {step >= 4 && <CompetitiveLandscape t={t} step={step} />}
 
-          {step >= 7 && <Benchmark step={step} />}
+          {step >= 7 && <Benchmark t={t} step={step} />}
 
-          {step >= 9 && <FeatureGaps />}
+          {step >= 9 && <FeatureGaps t={t} />}
 
-          {step >= 10 && <EvidenceCollection step={step} />}
+          {step >= 10 && <EvidenceCollection t={t} step={step} />}
 
-          {step >= 12 && <ResultsBlock />}
+          {step >= 12 && <ResultsBlock t={t} />}
 
-          {step >= 13 && <ConfidenceEngine />}
+          {step >= 13 && <ConfidenceEngine t={t} />}
 
-          {step >= 14 && <PulseConclusion onValidate={onValidate} />}
+          {step >= 14 && <PulseConclusion t={t} onValidate={onValidate} />}
         </div>
       </div>
 
-      <AskPulseFab visible={step >= FINAL_STEP} />
+      <AskPulseFab t={t} visible={step >= FINAL_STEP} />
     </div>
   );
 }
 
-/* ------------------------ Header ------------------------ */
-
-function EngineHeader() {
+function EngineHeader({ t }: { t: Dict }) {
   return (
     <div className="animate-soft-in flex flex-col gap-4">
       <div className="inline-flex items-center gap-2.5 self-start rounded-full border border-border bg-surface-elevated/80 pl-2 pr-4 py-1.5">
         <PulseMark size={18} />
         <span className="text-[11px] uppercase tracking-[0.18em] font-medium text-foreground/80">
-          PULSE · Cognitive Intelligence Engine
+          {t.engine.badge}
         </span>
       </div>
       <h2 className="text-[34px] sm:text-[42px] leading-[1.05] font-semibold tracking-[-0.02em] text-foreground max-w-3xl">
-        <span className="text-shimmer">Building a strategic understanding of your market.</span>
+        <span className="text-shimmer">{t.engine.title}</span>
       </h2>
     </div>
   );
 }
 
-/* ------------------------ Timeline ------------------------ */
-
 function EngineTimeline({
+  t,
   states,
 }: {
+  t: Dict;
   states: Array<"pending" | "running" | "completed">;
 }) {
   return (
     <nav
-      aria-label="Cognitive Process"
+      aria-label={t.timelineLabel}
       className="hidden lg:flex flex-col gap-5 sticky top-24 select-none"
     >
       <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 font-medium">
-        Cognitive Process
+        {t.timelineLabel}
       </div>
       <ol className="relative flex flex-col gap-4">
         <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" aria-hidden />
-        {TIMELINE.map((item, i) => {
+        {t.engine.timeline.map((label, i) => {
           const s = states[i];
           return (
-            <li key={item.key} className="relative flex items-start gap-3">
+            <li key={label} className="relative flex items-start gap-3">
               <span
                 className={[
                   "relative z-10 mt-[3px] flex h-[15px] w-[15px] items-center justify-center rounded-full border transition-all duration-500",
@@ -175,16 +157,14 @@ function EngineTimeline({
                 <span
                   className={[
                     "text-[13px] font-medium transition-colors",
-                    s === "pending"
-                      ? "text-muted-foreground/45"
-                      : "text-foreground",
+                    s === "pending" ? "text-muted-foreground/45" : "text-foreground",
                   ].join(" ")}
                 >
-                  {item.label}
+                  {label}
                 </span>
                 {s === "running" && (
                   <span className="mt-1 text-[10px] uppercase tracking-[0.14em] text-foreground/60">
-                    Running
+                    {t.engine.running}
                   </span>
                 )}
               </div>
@@ -195,8 +175,6 @@ function EngineTimeline({
     </nav>
   );
 }
-
-/* ------------------------ Section wrapper ------------------------ */
 
 function Section({
   eyebrow,
@@ -222,29 +200,11 @@ function Section({
   );
 }
 
-/* ------------------------ Market Modeling ------------------------ */
-
-const MARKET_CARDS = [
-  { label: "Business Domain", value: "Enterprise Software" },
-  { label: "Product Category", value: "AI Product Intelligence" },
-  { label: "Target Market", value: "Enterprise Organizations" },
-  {
-    label: "Primary Users",
-    value: "Product Teams · Product Managers · Engineering Leaders · Delivery Teams",
-  },
-];
-
-const INTENT = [
-  "Improve product competitiveness",
-  "Generate validated opportunities",
-  "Prioritize engineering investment",
-];
-
-function MarketModeling({ step }: { step: number }) {
+function MarketModeling({ t, step }: { t: Dict; step: number }) {
   return (
-    <Section eyebrow="Phase · Market Modeling" title="Understanding your business.">
+    <Section eyebrow={t.engine.market.eyebrow} title={t.engine.market.title}>
       <div className="grid sm:grid-cols-2 gap-3">
-        {MARKET_CARDS.map((c, i) => (
+        {t.engine.market.cards.map((c, i) => (
           <RevealCard key={c.label} show={step >= i + 1} delayIndex={i}>
             <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70 font-medium mb-2">
               {c.label}
@@ -263,10 +223,10 @@ function MarketModeling({ step }: { step: number }) {
         ].join(" ")}
       >
         <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70 font-medium mb-4">
-          Strategic Intent Recognized
+          {t.engine.market.intentTitle}
         </div>
         <ul className="flex flex-col gap-2.5">
-          {INTENT.map((line, i) => (
+          {t.engine.market.intents.map((line, i) => (
             <li
               key={line}
               className="flex items-center gap-3 text-[14.5px] text-foreground"
@@ -287,14 +247,11 @@ function MarketModeling({ step }: { step: number }) {
   );
 }
 
-/* ------------------------ Competitive Landscape ------------------------ */
-
 const COMPETITORS = ["Stripe", "Ramp", "Mercury", "Brex", "Rippling"];
 
-function CompetitiveLandscape({ step }: { step: number }) {
-  // Reveal competitors on step 4..6 progressively — all five over ~1s
+function CompetitiveLandscape({ t, step }: { t: Dict; step: number }) {
   return (
-    <Section eyebrow="Phase · Competitive Intelligence" title="Building Competitive Landscape.">
+    <Section eyebrow={t.engine.competitive.eyebrow} title={t.engine.competitive.title}>
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {COMPETITORS.map((c, i) => (
           <RevealCard key={c} show={step >= 4} delayIndex={i} compact>
@@ -302,7 +259,7 @@ function CompetitiveLandscape({ step }: { step: number }) {
               <div className="text-[15px] font-semibold tracking-tight text-foreground">{c}</div>
               <div className="inline-flex items-center gap-1.5 text-[11px] font-medium text-foreground/70">
                 <span className="h-1.5 w-1.5 rounded-full bg-foreground" />
-                Detected
+                {t.engine.competitive.detected}
               </div>
             </div>
           </RevealCard>
@@ -317,17 +274,15 @@ function CompetitiveLandscape({ step }: { step: number }) {
       >
         <div>
           <div className="text-[10px] uppercase tracking-[0.18em] text-background/60 font-medium mb-1.5">
-            Competitive Ecosystem
+            {t.engine.competitive.ecosystem}
           </div>
-          <div className="text-[18px] font-semibold tracking-tight">Completed</div>
+          <div className="text-[18px] font-semibold tracking-tight">{t.engine.competitive.completed}</div>
         </div>
-        <div className="text-[13px] text-background/70">5 competitors mapped</div>
+        <div className="text-[13px] text-background/70">{t.engine.competitive.mapped}</div>
       </div>
     </Section>
   );
 }
-
-/* ------------------------ Consolidated Benchmark ------------------------ */
 
 const BENCH = [
   { name: "Stripe", features: 184 },
@@ -337,21 +292,13 @@ const BENCH = [
   { name: "Rippling", features: 193 },
 ];
 
-const BENCH_TRACKS = [
-  "Feature Mapping",
-  "Capability Mapping",
-  "Journey Comparison",
-  "UX Benchmark",
-  "Engineering Complexity",
-];
-
-function Benchmark({ step }: { step: number }) {
+function Benchmark({ t, step }: { t: Dict; step: number }) {
   const max = Math.max(...BENCH.map((b) => b.features));
-  const fill = step >= 8; // bars fill
+  const fill = step >= 8;
   const done = step >= 9;
 
   return (
-    <Section eyebrow="Phase · Consolidated Benchmark" title="Cross-competitor feature analysis.">
+    <Section eyebrow={t.engine.benchmark.eyebrow} title={t.engine.benchmark.title}>
       <div className="grid grid-cols-5 gap-3">
         {BENCH.map((b, i) => {
           const h = (b.features / max) * 100;
@@ -370,7 +317,7 @@ function Benchmark({ step }: { step: number }) {
                     {b.features}
                   </span>
                   <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70">
-                    Features
+                    {t.engine.benchmark.features}
                   </span>
                 </div>
               </div>
@@ -381,9 +328,9 @@ function Benchmark({ step }: { step: number }) {
 
       <div className="rounded-2xl border border-border bg-surface-elevated/70 p-6">
         <div className="grid gap-4">
-          {BENCH_TRACKS.map((t, i) => (
-            <div key={t} className="flex items-center gap-4">
-              <div className="w-52 text-[13px] font-medium text-foreground/85">{t}</div>
+          {t.engine.benchmark.tracks.map((track, i) => (
+            <div key={track} className="flex items-center gap-4">
+              <div className="w-52 text-[13px] font-medium text-foreground/85">{track}</div>
               <div className="relative h-[6px] flex-1 rounded-full bg-surface overflow-hidden">
                 <div
                   className="absolute inset-y-0 left-0 bg-foreground rounded-full transition-[width] ease-[cubic-bezier(0.22,1,0.36,1)]"
@@ -409,48 +356,25 @@ function Benchmark({ step }: { step: number }) {
         ].join(" ")}
       >
         <CheckDot />
-        Benchmark Consolidated Successfully
+        {t.engine.benchmark.consolidated}
       </div>
     </Section>
   );
 }
 
-/* ------------------------ Feature Gap Discovery ------------------------ */
+const GAP_VALUES = [31, 12, 11, 8];
 
-const GAPS = [
-  {
-    label: "Detected Feature Gaps",
-    value: 31,
-    desc: "Total capability deltas across competitors.",
-  },
-  {
-    label: "Critical Opportunities",
-    value: 12,
-    desc: "High-impact gaps with strong strategic upside.",
-  },
-  {
-    label: "Incremental Improvements",
-    value: 11,
-    desc: "Refinements that raise product parity.",
-  },
-  {
-    label: "Strategic Innovations",
-    value: 8,
-    desc: "Non-obvious moves competitors have not made.",
-  },
-];
-
-function FeatureGaps() {
+function FeatureGaps({ t }: { t: Dict }) {
   return (
-    <Section eyebrow="Phase · Feature Gap Discovery" title="Where the opportunity lives.">
+    <Section eyebrow={t.engine.gaps.eyebrow} title={t.engine.gaps.title}>
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        {GAPS.map((g, i) => (
+        {t.engine.gaps.items.map((g, i) => (
           <RevealCard key={g.label} show delayIndex={i}>
             <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70 font-medium mb-3">
               {g.label}
             </div>
             <div className="text-[40px] font-semibold tracking-[-0.03em] text-foreground leading-none tabular-nums">
-              {g.value}
+              {GAP_VALUES[i]}
             </div>
             <div className="mt-3 text-[12.5px] leading-relaxed text-muted-foreground">
               {g.desc}
@@ -461,8 +385,6 @@ function FeatureGaps() {
     </Section>
   );
 }
-
-/* ------------------------ Evidence Collection ------------------------ */
 
 const SOURCES = [
   "Gartner",
@@ -483,22 +405,20 @@ const SOURCES = [
   "Technical Articles",
 ];
 
-const STATES = ["Analyzed", "Verified", "Indexed"] as const;
-
-function EvidenceCollection({ step }: { step: number }) {
+function EvidenceCollection({ t, step }: { t: Dict; step: number }) {
   const [tick, setTick] = useState(0);
   useEffect(() => {
     if (step < 10) return;
-    const id = setInterval(() => setTick((t) => t + 1), 240);
+    const id = setInterval(() => setTick((tk) => tk + 1), 240);
     return () => clearInterval(id);
   }, [step]);
 
   return (
-    <Section eyebrow="Phase · Market Evidence Collection" title="Cross-source public evidence.">
+    <Section eyebrow={t.engine.evidence.eyebrow} title={t.engine.evidence.title}>
       <div className="flex flex-wrap gap-2">
         {SOURCES.map((s, i) => {
           const active = tick > i;
-          const state = STATES[(i + Math.floor(tick / 3)) % STATES.length];
+          const state = t.engine.evidence.states[(i + Math.floor(tick / 3)) % t.engine.evidence.states.length];
           return (
             <div
               key={s}
@@ -532,20 +452,10 @@ function EvidenceCollection({ step }: { step: number }) {
   );
 }
 
-/* ------------------------ Results ------------------------ */
-
-const RESULTS = [
-  { label: "Sources Consulted", value: "148" },
-  { label: "Market Signals", value: "326" },
-  { label: "Validated Mentions", value: "512" },
-  { label: "Relevant Documents", value: "83" },
-  { label: "Engineering References", value: "97" },
-];
-
-function ResultsBlock() {
+function ResultsBlock({ t }: { t: Dict }) {
   return (
     <section className="animate-soft-in grid grid-cols-2 sm:grid-cols-5 gap-3">
-      {RESULTS.map((r, i) => (
+      {t.engine.results.map((r, i) => (
         <RevealCard key={r.label} show delayIndex={i} compact>
           <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70 font-medium mb-2">
             {r.label}
@@ -559,22 +469,13 @@ function ResultsBlock() {
   );
 }
 
-/* ------------------------ Confidence ------------------------ */
-
-const CONFIDENCE = [
-  { label: "Data Freshness", value: "High" },
-  { label: "Source Diversity", value: "Excellent" },
-  { label: "Evidence Quality", value: "Verified" },
-  { label: "Benchmark Coverage", value: "95%" },
-];
-
-function ConfidenceEngine() {
+function ConfidenceEngine({ t }: { t: Dict }) {
   return (
     <section className="animate-soft-in rounded-2xl border border-border bg-surface-elevated/70 p-8">
       <div className="grid lg:grid-cols-[280px_1fr] gap-10 items-center">
         <div className="flex flex-col items-start gap-2">
           <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 font-medium">
-            Overall Analysis Confidence
+            {t.engine.confidence.overall}
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-[64px] font-semibold tracking-[-0.03em] text-foreground leading-none tabular-nums">
@@ -593,7 +494,7 @@ function ConfidenceEngine() {
           </div>
         </div>
         <div className="grid sm:grid-cols-2 gap-3">
-          {CONFIDENCE.map((c, i) => (
+          {t.engine.confidence.items.map((c, i) => (
             <div
               key={c.label}
               className="rounded-xl border border-border bg-surface p-4 flex items-center justify-between"
@@ -611,9 +512,7 @@ function ConfidenceEngine() {
   );
 }
 
-/* ------------------------ Conclusion + CTAs ------------------------ */
-
-function PulseConclusion({ onValidate }: { onValidate?: () => void }) {
+function PulseConclusion({ t, onValidate }: { t: Dict; onValidate?: () => void }) {
   return (
     <section className="animate-soft-in flex flex-col gap-6">
       <div className="rounded-3xl border border-border bg-foreground text-background p-10">
@@ -621,15 +520,13 @@ function PulseConclusion({ onValidate }: { onValidate?: () => void }) {
           <PulseMark size={28} />
           <div className="flex-1">
             <div className="text-[10px] uppercase tracking-[0.2em] text-background/60 font-medium mb-3">
-              PULSE Conclusion
+              {t.engine.conclusion.eyebrow}
             </div>
             <h4 className="text-[26px] sm:text-[30px] leading-[1.15] font-semibold tracking-[-0.02em]">
-              Strategic Insights Ready.
+              {t.engine.conclusion.title}
             </h4>
             <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-background/80">
-              PULSE successfully built a comprehensive market model combining competitive
-              intelligence, product benchmarking and public evidence. The analysis is now ready
-              for FLOW validation.
+              {t.engine.conclusion.desc}
             </p>
           </div>
         </div>
@@ -640,7 +537,7 @@ function PulseConclusion({ onValidate }: { onValidate?: () => void }) {
           onClick={onValidate}
           className="inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3 text-[13.5px] font-medium text-background transition-all duration-300 hover:opacity-90 active:scale-[0.98]"
         >
-          Validate Opportunities with FLOW
+          {t.engine.conclusion.cta}
           <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none">
             <path
               d="M3 8h10M9 4l4 4-4 4"
@@ -652,29 +549,25 @@ function PulseConclusion({ onValidate }: { onValidate?: () => void }) {
           </svg>
         </button>
         <button className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-elevated px-6 py-3 text-[13.5px] font-medium text-foreground transition-all duration-300 hover:bg-accent active:scale-[0.98]">
-          Review Intelligence
+          {t.engine.conclusion.review}
         </button>
       </div>
     </section>
   );
 }
 
-/* ------------------------ Ask PULSE FAB ------------------------ */
-
-function AskPulseFab({ visible }: { visible: boolean }) {
+function AskPulseFab({ t, visible }: { t: Dict; visible: boolean }) {
   if (!visible) return null;
   return (
     <button
       className="fixed bottom-6 right-6 z-40 inline-flex items-center gap-2.5 rounded-full border border-border bg-surface-elevated/90 backdrop-blur px-4 py-3 text-[13px] font-medium text-foreground shadow-[0_10px_40px_-15px_rgba(0,0,0,0.25)] transition-all duration-300 hover:bg-accent active:scale-[0.98] animate-soft-in"
-      aria-label="Ask PULSE"
+      aria-label={t.engine.ask}
     >
       <PulseMark size={18} />
-      Ask PULSE
+      {t.engine.ask}
     </button>
   );
 }
-
-/* ------------------------ Bits ------------------------ */
 
 function CheckDot() {
   return (

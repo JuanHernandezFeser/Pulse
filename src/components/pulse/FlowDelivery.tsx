@@ -1,18 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { Dict } from "@/lib/pulse-i18n";
 import { PulseMark } from "./PulseMark";
-
-const TIMELINE = [
-  "Workspace",
-  "Brief",
-  "Context",
-  "Market Modeling",
-  "Competitive Intelligence",
-  "Evidence Collection",
-  "FLOW Validation",
-  "Executive Decision",
-  "Blueprint",
-  "Delivery",
-] as const;
+import { BackButton } from "./BackButton";
 
 type Phase =
   | "flow-transition"
@@ -22,7 +11,15 @@ type Phase =
   | "delivery"
   | "final";
 
-export function FlowDelivery({ onRestart }: { onRestart?: () => void }) {
+export function FlowDelivery({
+  t,
+  onRestart,
+  onBackToEngine,
+}: {
+  t: Dict;
+  onRestart?: () => void;
+  onBackToEngine?: () => void;
+}) {
   const [phase, setPhase] = useState<Phase>("flow-transition");
 
   useEffect(() => {
@@ -34,10 +31,7 @@ export function FlowDelivery({ onRestart }: { onRestart?: () => void }) {
       {phase === "flow-transition" && (
         <Overlay
           badge="PULSE → FLOW"
-          lines={[
-            "Transferring cognitive model...",
-            "FLOW Validation Engine Activated",
-          ]}
+          lines={t.flow.transitionFlow}
           onDone={() => setPhase("flow")}
         />
       )}
@@ -45,32 +39,42 @@ export function FlowDelivery({ onRestart }: { onRestart?: () => void }) {
       {phase === "blueprint-transition" && (
         <Overlay
           badge="PULSE Blueprint Engine"
-          lines={[
-            "Consolidating validated intelligence...",
-            "Generating engineering assets...",
-          ]}
+          lines={t.flow.transitionBlueprint}
           onDone={() => setPhase("blueprint")}
         />
       )}
 
       {phase === "flow" && (
-        <FlowValidation onGenerate={() => setPhase("blueprint-transition")} />
+        <FlowValidation
+          t={t}
+          onGenerate={() => setPhase("blueprint-transition")}
+          onBack={onBackToEngine}
+        />
       )}
 
       {phase === "blueprint" && (
-        <Blueprint onReady={() => setPhase("delivery")} />
+        <Blueprint
+          t={t}
+          onReady={() => setPhase("delivery")}
+          onBack={() => setPhase("flow")}
+        />
       )}
 
       {phase === "delivery" && (
-        <DeliveryHub onFinish={() => setPhase("final")} onRestart={onRestart} />
+        <DeliveryHub
+          t={t}
+          onFinish={() => setPhase("final")}
+          onRestart={onRestart}
+          onBack={() => setPhase("blueprint")}
+        />
       )}
 
-      {phase === "final" && <FinalScreen onRestart={onRestart} />}
+      {phase === "final" && (
+        <FinalScreen t={t} onRestart={onRestart} onBack={() => setPhase("delivery")} />
+      )}
     </>
   );
 }
-
-/* --------------------------- Overlay --------------------------- */
 
 function Overlay({
   badge,
@@ -133,24 +137,24 @@ function Overlay({
   );
 }
 
-/* --------------------------- Timeline (reused shape) --------------------------- */
-
 function TimelineNav({
+  t,
   states,
 }: {
+  t: Dict;
   states: Array<"pending" | "running" | "completed">;
 }) {
   return (
     <nav
-      aria-label="Cognitive Process"
+      aria-label={t.timelineLabel}
       className="hidden lg:flex flex-col gap-5 sticky top-24 select-none"
     >
       <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 font-medium">
-        Cognitive Process
+        {t.timelineLabel}
       </div>
       <ol className="relative flex flex-col gap-4">
         <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" aria-hidden />
-        {TIMELINE.map((label, i) => {
+        {t.engine.timeline.map((label, i) => {
           const s = states[i];
           return (
             <li key={label} className="relative flex items-start gap-3">
@@ -204,9 +208,15 @@ function TimelineNav({
   );
 }
 
-/* --------------------------- FLOW Validation --------------------------- */
-
-function FlowValidation({ onGenerate }: { onGenerate: () => void }) {
+function FlowValidation({
+  t,
+  onGenerate,
+  onBack,
+}: {
+  t: Dict;
+  onGenerate: () => void;
+  onBack?: () => void;
+}) {
   const [step, setStep] = useState(0);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
@@ -224,47 +234,40 @@ function FlowValidation({ onGenerate }: { onGenerate: () => void }) {
   }, []);
 
   const states = useMemo(() => {
-    return TIMELINE.map((_, i) => {
+    return t.engine.timeline.map((_, i) => {
       if (i <= 5) return "completed" as const;
       if (i === 6) return step >= 9 ? "completed" : "running";
       return "pending" as const;
     });
-  }, [step]);
-
-  const panels = [
-    { label: "Market Signals", value: "326" },
-    { label: "Evidence Sources", value: "148" },
-    { label: "Validated Opportunities", value: "12" },
-    { label: "Rejected Opportunities", value: "4" },
-    { label: "Validation In Progress", value: "7" },
-  ];
+  }, [step, t.engine.timeline]);
 
   return (
-    <div className="mx-auto max-w-[1240px] px-6 lg:px-10 pt-14 pb-32">
+    <div className="mx-auto max-w-[1240px] px-6 lg:px-10 pt-6 pb-32">
+      <div className="mb-6">
+        <BackButton t={t} onBack={onBack} />
+      </div>
       <div className="grid lg:grid-cols-[240px_1fr] gap-14">
         <aside>
-          <TimelineNav states={states} />
+          <TimelineNav t={t} states={states} />
         </aside>
         <div className="min-w-0 flex flex-col gap-20">
-          {/* Header */}
           <div className="animate-soft-in flex flex-col gap-4">
             <div className="inline-flex items-center gap-2.5 self-start rounded-full border border-violet-500/30 bg-violet-500/10 pl-2 pr-4 py-1.5">
               <span className="h-2 w-2 rounded-full bg-violet-500 animate-pulse" />
               <span className="text-[11px] uppercase tracking-[0.18em] font-medium text-violet-600 dark:text-violet-300">
-                FLOW · Market Validation Engine
+                {t.flow.badge}
               </span>
             </div>
             <h2 className="text-[34px] sm:text-[42px] leading-[1.05] font-semibold tracking-[-0.02em] text-foreground max-w-3xl">
-              <span className="text-shimmer">Evidence Validation</span>
+              <span className="text-shimmer">{t.flow.title}</span>
             </h2>
             <p className="text-[15px] text-muted-foreground max-w-2xl">
-              Validating real market demand before recommending engineering investment.
+              {t.flow.subtitle}
             </p>
           </div>
 
-          {/* Validation Panels */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            {panels.map((p, i) => (
+            {t.flow.panels.map((p, i) => (
               <div
                 key={p.label}
                 className={[
@@ -282,78 +285,66 @@ function FlowValidation({ onGenerate }: { onGenerate: () => void }) {
             ))}
           </div>
 
-          {/* Evidence cases */}
           {step >= 5 && (
             <section className="flex flex-col gap-6 animate-soft-in">
-              <SectionTitle overline="Evidence Cases" title="What FLOW validated — and what it rejected" />
+              <SectionTitle overline={t.flow.evidenceOverline} title={t.flow.evidenceTitle} />
               <div className="grid md:grid-cols-2 gap-4">
                 <EvidenceCard
-                  title="AI Recruiting Assistant"
+                  t={t}
+                  title={t.flow.cases[0].title}
                   status="validated"
                   confidence="94%"
-                  evidence="126 verified public mentions across Gartner, GitHub, Reddit and industry reports."
+                  evidence={t.flow.cases[0].evidence}
                 />
                 <EvidenceCard
-                  title="Offline Candidate Ranking"
+                  t={t}
+                  title={t.flow.cases[1].title}
                   status="rejected"
                   confidence="18%"
-                  evidence="Only 4 public mentions. Insufficient market validation."
-                  reason="Insufficient market validation"
+                  evidence={t.flow.cases[1].evidence}
+                  reason={t.flow.cases[1].reason}
                 />
               </div>
             </section>
           )}
 
-          {/* Matrix */}
           {step >= 6 && (
             <section className="flex flex-col gap-6 animate-soft-in">
-              <SectionTitle overline="Validation Matrix" title="Opportunities ranked by validated business impact" />
+              <SectionTitle overline={t.flow.matrixOverline} title={t.flow.matrixTitle} />
               <div className="grid md:grid-cols-3 gap-4">
-                <MatrixCard
-                  opportunity="AI Candidate Ranking"
-                  value="Very High"
-                  confidence="94%"
-                  complexity="Medium"
-                  status="validated"
-                />
-                <MatrixCard
-                  opportunity="Predictive Talent Scoring"
-                  value="High"
-                  confidence="91%"
-                  complexity="Medium"
-                  status="validated"
-                />
-                <MatrixCard
-                  opportunity="Offline Recruiting Mode"
-                  value="Low"
-                  confidence="18%"
-                  complexity="High"
-                  status="rejected"
-                  reason="Weak evidence"
-                />
+                {t.flow.matrix.map((m, i) => (
+                  <MatrixCard
+                    key={m.opportunity}
+                    t={t}
+                    opportunity={m.opportunity}
+                    value={m.value}
+                    confidence={m.confidence}
+                    complexity={m.complexity}
+                    status={i < 2 ? "validated" : "rejected"}
+                    reason={m.reason}
+                  />
+                ))}
               </div>
             </section>
           )}
 
-          {/* Confidence */}
           {step >= 7 && (
             <section className="animate-soft-in">
               <div className="rounded-3xl border border-border bg-surface-elevated/60 p-8 md:p-10">
                 <div className="grid md:grid-cols-[1fr_auto] gap-8 items-center">
                   <div className="flex flex-col gap-4">
                     <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 font-medium">
-                      Confidence Engine
+                      {t.flow.confidenceEngine}
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                      <MiniStat label="Evidence Quality" value="Verified" />
-                      <MiniStat label="Market Coverage" value="Excellent" />
-                      <MiniStat label="Benchmark Reliability" value="95%" />
-                      <MiniStat label="Strategic Priority" value="High" />
+                      {t.flow.confidenceMini.map((m) => (
+                        <MiniStat key={m.label} label={m.label} value={m.value} />
+                      ))}
                     </div>
                   </div>
                   <div className="flex flex-col items-center md:items-end gap-1">
                     <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/70 font-medium">
-                      Overall Confidence
+                      {t.flow.overallConfidence}
                     </div>
                     <div className="text-[56px] leading-none font-semibold tracking-tight text-foreground">
                       94%
@@ -364,30 +355,23 @@ function FlowValidation({ onGenerate }: { onGenerate: () => void }) {
             </section>
           )}
 
-          {/* Executive Recommendation */}
           {step >= 8 && (
             <section className="animate-soft-in">
-              <SectionTitle overline="Executive Decision" title="Executive Recommendation" />
+              <SectionTitle overline={t.flow.executiveOverline} title={t.flow.executiveTitle} />
               <div className="mt-6 relative overflow-hidden rounded-3xl border border-border bg-foreground text-background p-8 md:p-12">
                 <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-violet-500/20 blur-3xl" aria-hidden />
                 <div className="relative flex flex-col gap-6">
                   <div className="inline-flex items-center gap-2 self-start rounded-full border border-background/20 bg-background/10 px-3 py-1">
                     <PulseMark size={14} />
                     <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-background/80">
-                      PULSE Recommendation
+                      {t.flow.recommendationBadge}
                     </span>
                   </div>
                   <h3 className="text-[28px] sm:text-[34px] leading-[1.1] font-semibold tracking-[-0.02em] max-w-3xl">
-                    Prioritize AI-assisted candidate matching before redesigning the recruiting workflow.
+                    {t.flow.recommendationTitle}
                   </h3>
                   <ul className="grid sm:grid-cols-2 gap-x-8 gap-y-2 text-[14px] text-background/80">
-                    {[
-                      "Highest validated business impact",
-                      "Strong public demand",
-                      "Competitive differentiation",
-                      "Engineering feasibility",
-                      "Validated by FLOW",
-                    ].map((r) => (
+                    {t.flow.reasons.map((r) => (
                       <li key={r} className="flex items-start gap-2">
                         <span className="mt-[7px] h-1 w-1 rounded-full bg-background/70" />
                         {r}
@@ -399,7 +383,7 @@ function FlowValidation({ onGenerate }: { onGenerate: () => void }) {
                       onClick={onGenerate}
                       className="mt-4 self-start inline-flex items-center gap-2 rounded-full bg-background text-foreground px-6 py-3 text-[14px] font-medium tracking-tight hover:opacity-90 transition-opacity animate-soft-in"
                     >
-                      Generate Engineering Blueprint
+                      {t.flow.generateBlueprint}
                       <span aria-hidden>→</span>
                     </button>
                   )}
@@ -427,12 +411,14 @@ function SectionTitle({ overline, title }: { overline: string; title: string }) 
 }
 
 function EvidenceCard({
+  t,
   title,
   status,
   confidence,
   evidence,
   reason,
 }: {
+  t: Dict;
   title: string;
   status: "validated" | "rejected";
   confidence: string;
@@ -452,12 +438,12 @@ function EvidenceCard({
               : "border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400",
           ].join(" ")}
         >
-          {isValid ? "Validated" : "Rejected"}
+          {isValid ? t.flow.validated : t.flow.rejected}
         </span>
       </div>
       <div className="grid grid-cols-2 gap-4">
-        <MiniStat label="Confidence" value={confidence} />
-        <MiniStat label={reason ? "Reason" : "Evidence"} value={reason ?? "Verified"} />
+        <MiniStat label={t.flow.confidenceLabel} value={confidence} />
+        <MiniStat label={reason ? t.flow.reasonLabel : t.flow.evidenceLabel} value={reason ?? t.flow.verified} />
       </div>
       <p className="text-[13px] text-muted-foreground leading-relaxed">{evidence}</p>
     </div>
@@ -465,6 +451,7 @@ function EvidenceCard({
 }
 
 function MatrixCard({
+  t,
   opportunity,
   value,
   confidence,
@@ -472,6 +459,7 @@ function MatrixCard({
   status,
   reason,
 }: {
+  t: Dict;
   opportunity: string;
   value: string;
   confidence: string;
@@ -492,14 +480,14 @@ function MatrixCard({
               : "border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400",
           ].join(" ")}
         >
-          {isValid ? "Validated" : "Rejected"}
+          {isValid ? t.flow.validated : t.flow.rejected}
         </span>
       </div>
       <dl className="grid grid-cols-2 gap-y-3 gap-x-4 text-[12px]">
-        <Row label="Business Value" value={value} />
-        <Row label="Confidence" value={confidence} />
-        <Row label="Complexity" value={complexity} />
-        {reason && <Row label="Reason" value={reason} />}
+        <Row label={t.flow.businessValue} value={value} />
+        <Row label={t.flow.confidenceLabel} value={confidence} />
+        <Row label={t.flow.complexityLabel} value={complexity} />
+        {reason && <Row label={t.flow.reasonLabel} value={reason} />}
       </dl>
     </div>
   );
@@ -523,47 +511,22 @@ function MiniStat({ label, value }: { label: string; value: string }) {
   );
 }
 
-/* --------------------------- Blueprint --------------------------- */
-
-const BLUEPRINT_MODULES = [
-  { title: "Strategic Summary", detail: "Executive narrative connecting market signals to the recommended bet." },
-  { title: "Functional Specification", detail: "End-to-end product behavior described in enterprise language." },
-  { title: "Business Requirements", detail: "Outcomes and constraints owned by product leadership." },
-  { title: "Functional Requirements", detail: "Precise capability contracts for engineering." },
-  { title: "Acceptance Criteria", detail: "Verifiable outcomes for each capability." },
-  { title: "Implementation Roadmap", detail: "Phased plan aligned to validated business impact." },
-  { title: "Epics", detail: "Structured investment blocks ready for backlog." },
-  { title: "Features", detail: "Slices scoped for measurable value." },
-  { title: "User Stories", detail: "Contextualized workflows with actor and outcome." },
-  { title: "Technical Tasks", detail: "Engineering breakdown per feature." },
-  { title: "Dependencies", detail: "Cross-team and platform prerequisites." },
-  { title: "Business Risks", detail: "Adoption, market and revenue exposure." },
-  { title: "Technical Risks", detail: "Architectural and delivery exposure." },
-  { title: "Expected Business Impact", detail: "Quantified outcome model at 6, 12 and 18 months." },
-];
-
-const ARTIFACTS = [
-  "Executive Report",
-  "Engineering Blueprint",
-  "Functional Specification",
-  "Product Roadmap",
-  "Epics",
-  "Stories",
-  "Tasks",
-  "Evidence Report",
-  "Benchmark Report",
-  "Validation Report",
-  "Jira Package",
-];
-
-function Blueprint({ onReady }: { onReady: () => void }) {
+function Blueprint({
+  t,
+  onReady,
+  onBack,
+}: {
+  t: Dict;
+  onReady: () => void;
+  onBack?: () => void;
+}) {
   const [revealed, setRevealed] = useState(0);
   const [ready, setReady] = useState(false);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
     let acc = 0;
-    BLUEPRINT_MODULES.forEach((_, i) => {
+    t.blueprint.modules.forEach((_, i) => {
       acc += 380;
       timers.current.push(setTimeout(() => setRevealed(i + 1), acc));
     });
@@ -572,42 +535,45 @@ function Blueprint({ onReady }: { onReady: () => void }) {
       timers.current.forEach(clearTimeout);
       timers.current = [];
     };
-  }, []);
+  }, [t.blueprint.modules]);
 
   const states = useMemo(
     () =>
-      TIMELINE.map((_, i) => {
+      t.engine.timeline.map((_, i) => {
         if (i <= 7) return "completed" as const;
         if (i === 8) return ready ? "completed" : "running";
         return "pending" as const;
       }),
-    [ready]
+    [ready, t.engine.timeline]
   );
 
   return (
-    <div className="mx-auto max-w-[1240px] px-6 lg:px-10 pt-14 pb-32">
+    <div className="mx-auto max-w-[1240px] px-6 lg:px-10 pt-6 pb-32">
+      <div className="mb-6">
+        <BackButton t={t} onBack={onBack} />
+      </div>
       <div className="grid lg:grid-cols-[240px_1fr] gap-14">
         <aside>
-          <TimelineNav states={states} />
+          <TimelineNav t={t} states={states} />
         </aside>
         <div className="min-w-0 flex flex-col gap-20">
           <div className="animate-soft-in flex flex-col gap-4">
             <div className="inline-flex items-center gap-2.5 self-start rounded-full border border-border bg-surface-elevated/80 pl-2 pr-4 py-1.5">
               <PulseMark size={18} />
               <span className="text-[11px] uppercase tracking-[0.18em] font-medium text-foreground/80">
-                PULSE · Blueprint Engine
+                {t.blueprint.badge}
               </span>
             </div>
             <h2 className="text-[34px] sm:text-[42px] leading-[1.05] font-semibold tracking-[-0.02em] text-foreground max-w-3xl">
-              <span className="text-shimmer">Engineering Blueprint</span>
+              <span className="text-shimmer">{t.blueprint.title}</span>
             </h2>
             <p className="text-[15px] text-muted-foreground max-w-2xl">
-              PULSE is composing the enterprise-ready blueprint from the validated intelligence.
+              {t.blueprint.subtitle}
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-3">
-            {BLUEPRINT_MODULES.map((m, i) => (
+            {t.blueprint.modules.map((m, i) => (
               <div
                 key={m.title}
                 className={[
@@ -628,7 +594,7 @@ function Blueprint({ onReady }: { onReady: () => void }) {
                 </div>
                 {revealed > i && (
                   <span className="ml-auto text-[10px] uppercase tracking-[0.16em] text-emerald-600 dark:text-emerald-400 shrink-0">
-                    Ready
+                    {t.blueprint.ready}
                   </span>
                 )}
               </div>
@@ -642,29 +608,29 @@ function Blueprint({ onReady }: { onReady: () => void }) {
                 <div className="relative flex flex-col md:flex-row md:items-center gap-6 justify-between">
                   <div>
                     <div className="text-[10px] uppercase tracking-[0.22em] text-background/60 font-medium mb-2">
-                      Engineering Package
+                      {t.blueprint.packageEyebrow}
                     </div>
                     <h3 className="text-[28px] sm:text-[32px] font-semibold tracking-[-0.02em]">
-                      Engineering Package Ready
+                      {t.blueprint.packageTitle}
                     </h3>
                     <p className="text-[14px] text-background/70 mt-2 max-w-xl">
-                      A complete, validated and executable strategic package generated end-to-end.
+                      {t.blueprint.packageDesc}
                     </p>
                   </div>
                   <button
                     onClick={onReady}
                     className="inline-flex items-center gap-2 rounded-full bg-background text-foreground px-6 py-3 text-[14px] font-medium tracking-tight hover:opacity-90 transition-opacity"
                   >
-                    Open Delivery Hub
+                    {t.blueprint.openDelivery}
                     <span aria-hidden>→</span>
                   </button>
                 </div>
               </div>
 
               <div>
-                <SectionTitle overline="Artifacts" title="Generated by PULSE" />
+                <SectionTitle overline={t.blueprint.artifactsOverline} title={t.blueprint.artifactsTitle} />
                 <div className="mt-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {ARTIFACTS.map((a, i) => (
+                  {t.blueprint.artifacts.map((a, i) => (
                     <div
                       key={a}
                       className="group rounded-2xl border border-border bg-surface-elevated/60 p-5 flex items-center gap-3 hover:border-foreground/40 transition-colors"
@@ -708,14 +674,16 @@ function ArtifactIcon({ index }: { index: number }) {
   );
 }
 
-/* --------------------------- Delivery Hub --------------------------- */
-
 function DeliveryHub({
+  t,
   onFinish,
   onRestart,
+  onBack,
 }: {
+  t: Dict;
   onFinish: () => void;
   onRestart?: () => void;
+  onBack?: () => void;
 }) {
   const [jiraStep, setJiraStep] = useState<number>(-1);
   const [pdfState, setPdfState] = useState<"idle" | "generating" | "done">("idle");
@@ -723,27 +691,21 @@ function DeliveryHub({
 
   const states = useMemo(
     () =>
-      TIMELINE.map((_, i) => {
+      t.engine.timeline.map((_, i) => {
         if (i <= 8) return "completed" as const;
         if (i === 9) return "running" as const;
         return "pending" as const;
       }),
-    []
+    [t.engine.timeline]
   );
+
+  const jiraLines = t.delivery.jira.lines;
 
   const publishJira = () => {
     if (jiraStep >= 0) return;
-    const lines = [
-      "Publishing...",
-      "Epic Created",
-      "23 Stories Created",
-      "81 Tasks Created",
-      "Evidence Attached",
-      "Ready for Sprint Planning",
-    ];
     setJiraStep(0);
     let acc = 0;
-    lines.forEach((_, i) => {
+    jiraLines.forEach((_, i) => {
       acc += 900;
       jiraTimers.current.push(setTimeout(() => setJiraStep(i + 1), acc));
     });
@@ -753,8 +715,7 @@ function DeliveryHub({
     if (pdfState !== "idle") return;
     setPdfState("generating");
     setTimeout(() => {
-      // Simulate a lightweight PDF download
-      const pdf = buildExecutivePdf();
+      const pdf = buildExecutivePdf(t);
       const blob = new Blob([pdf], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -770,20 +731,14 @@ function DeliveryHub({
 
   useEffect(() => () => jiraTimers.current.forEach(clearTimeout), []);
 
-  const jiraLines = [
-    "Publishing...",
-    "Epic Created",
-    "23 Stories Created",
-    "81 Tasks Created",
-    "Evidence Attached",
-    "Ready for Sprint Planning",
-  ];
-
   return (
-    <div className="mx-auto max-w-[1240px] px-6 lg:px-10 pt-14 pb-32">
+    <div className="mx-auto max-w-[1240px] px-6 lg:px-10 pt-6 pb-32">
+      <div className="mb-6">
+        <BackButton t={t} onBack={onBack} />
+      </div>
       <div className="grid lg:grid-cols-[240px_1fr] gap-14">
         <aside>
-          <TimelineNav states={states} />
+          <TimelineNav t={t} states={states} />
         </aside>
 
         <div className="min-w-0 flex flex-col gap-16">
@@ -791,27 +746,28 @@ function DeliveryHub({
             <div className="inline-flex items-center gap-2.5 self-start rounded-full border border-border bg-surface-elevated/80 pl-2 pr-4 py-1.5">
               <PulseMark size={18} />
               <span className="text-[11px] uppercase tracking-[0.18em] font-medium text-foreground/80">
-                Delivery Hub
+                {t.delivery.badge}
               </span>
             </div>
             <h2 className="text-[34px] sm:text-[42px] leading-[1.05] font-semibold tracking-[-0.02em] text-foreground max-w-3xl">
-              <span className="text-shimmer">Deliver the decision.</span>
+              <span className="text-shimmer">{t.delivery.title}</span>
             </h2>
             <p className="text-[15px] text-muted-foreground max-w-2xl">
-              Publish the validated blueprint to your enterprise systems, or export executive-ready assets.
+              {t.delivery.subtitle}
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
             <ActionCard
-              title="Publish to Jira"
-              subtitle="Push the entire epic, stories, tasks and evidence to your workspace."
+              t={t}
+              title={t.delivery.jira.title}
+              subtitle={t.delivery.jira.subtitle}
               accent
               onClick={publishJira}
               disabled={jiraStep >= 0}
               running={jiraStep >= 0 && jiraStep < jiraLines.length}
               done={jiraStep >= jiraLines.length}
-              cta={jiraStep >= jiraLines.length ? "Published" : jiraStep >= 0 ? "Publishing" : "Publish"}
+              cta={jiraStep >= jiraLines.length ? t.delivery.jira.published : jiraStep >= 0 ? t.delivery.jira.publishing : t.delivery.jira.publish}
             >
               {jiraStep >= 0 && (
                 <div className="mt-5 flex flex-col gap-1.5">
@@ -849,30 +805,30 @@ function DeliveryHub({
             </ActionCard>
 
             <ActionCard
-              title="Generate Executive PDF"
-              subtitle="Board-ready summary: strategy, benchmark, validation and roadmap."
+              t={t}
+              title={t.delivery.pdf.title}
+              subtitle={t.delivery.pdf.subtitle}
               onClick={generatePdf}
               disabled={pdfState !== "idle"}
               running={pdfState === "generating"}
               done={pdfState === "done"}
-              cta={pdfState === "done" ? "Downloaded" : pdfState === "generating" ? "Generating" : "Generate"}
+              cta={pdfState === "done" ? t.delivery.pdf.done : pdfState === "generating" ? t.delivery.pdf.generating : t.delivery.pdf.generate}
             >
               {pdfState !== "idle" && (
                 <div className="mt-5 text-[12px] text-muted-foreground flex items-center gap-2">
                   <span className="h-1.5 w-1.5 rounded-full bg-foreground animate-pulse" />
-                  {pdfState === "generating"
-                    ? "Composing Executive Summary, Benchmark, Opportunities, Impact and Roadmap..."
-                    : "Delivered to your device."}
+                  {pdfState === "generating" ? t.delivery.pdf.composing : t.delivery.pdf.delivered}
                 </div>
               )}
             </ActionCard>
 
             <ActionCard
-              title="Download Engineering Package"
-              subtitle="Full blueprint, artifacts and evidence — zipped for delivery."
-              cta="Download"
+              t={t}
+              title={t.delivery.pkg.title}
+              subtitle={t.delivery.pkg.subtitle}
+              cta={t.delivery.pkg.cta}
               onClick={() => {
-                const blob = new Blob([JSON.stringify({ package: "PULSE Engineering Package", artifacts: ARTIFACTS }, null, 2)], {
+                const blob = new Blob([JSON.stringify({ package: "PULSE Engineering Package", artifacts: t.blueprint.artifacts }, null, 2)], {
                   type: "application/json",
                 });
                 const url = URL.createObjectURL(blob);
@@ -887,9 +843,10 @@ function DeliveryHub({
             />
 
             <ActionCard
-              title="Review Generated Blueprint"
-              subtitle="Preview the composed blueprint before publishing to Jira."
-              cta="Preview"
+              t={t}
+              title={t.delivery.review.title}
+              subtitle={t.delivery.review.subtitle}
+              cta={t.delivery.review.cta}
               onClick={onFinish}
             />
           </div>
@@ -897,10 +854,10 @@ function DeliveryHub({
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-3xl border border-border bg-surface-elevated/60 p-6">
             <div>
               <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70 font-medium mb-1">
-                When you're done
+                {t.delivery.wrapEyebrow}
               </div>
               <div className="text-[16px] font-semibold tracking-tight text-foreground">
-                Start a new strategic analysis
+                {t.delivery.wrapTitle}
               </div>
             </div>
             <div className="flex gap-3">
@@ -908,13 +865,13 @@ function DeliveryHub({
                 onClick={onFinish}
                 className="inline-flex items-center gap-2 rounded-full border border-border bg-background text-foreground px-5 py-2.5 text-[13px] font-medium hover:border-foreground/40 transition-colors"
               >
-                Wrap up
+                {t.delivery.wrapUp}
               </button>
               <button
                 onClick={onRestart}
                 className="inline-flex items-center gap-2 rounded-full bg-foreground text-background px-5 py-2.5 text-[13px] font-medium hover:opacity-90 transition-opacity"
               >
-                Start New Strategic Analysis
+                {t.delivery.newAnalysis}
               </button>
             </div>
           </div>
@@ -925,6 +882,7 @@ function DeliveryHub({
 }
 
 function ActionCard({
+  t,
   title,
   subtitle,
   cta,
@@ -935,6 +893,7 @@ function ActionCard({
   accent,
   children,
 }: {
+  t: Dict;
   title: string;
   subtitle: string;
   cta?: string;
@@ -961,7 +920,7 @@ function ActionCard({
         </div>
         {done && (
           <span className="shrink-0 inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.18em] text-emerald-600 dark:text-emerald-400">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Done
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> {t.delivery.doneLabel}
           </span>
         )}
       </div>
@@ -988,29 +947,38 @@ function ActionCard({
   );
 }
 
-/* --------------------------- Final --------------------------- */
-
-function FinalScreen({ onRestart }: { onRestart?: () => void }) {
+function FinalScreen({
+  t,
+  onRestart,
+  onBack,
+}: {
+  t: Dict;
+  onRestart?: () => void;
+  onBack?: () => void;
+}) {
   return (
-    <div className="mx-auto max-w-[1240px] px-6 lg:px-10 pt-24 pb-32">
+    <div className="mx-auto max-w-[1240px] px-6 lg:px-10 pt-6 pb-32">
+      <div className="mb-6">
+        <BackButton t={t} onBack={onBack} />
+      </div>
       <div className="min-h-[70vh] flex flex-col items-center justify-center text-center animate-soft-in">
         <div className="scale-[1.4] mb-10">
           <PulseMark size={64} />
         </div>
         <div className="text-[10px] uppercase tracking-[0.28em] text-muted-foreground/70 font-medium mb-6">
-          PULSE
+          {t.final.eyebrow}
         </div>
         <h2 className="text-[42px] sm:text-[56px] leading-[1.02] font-semibold tracking-[-0.025em] text-foreground max-w-3xl">
-          <span className="text-shimmer">Strategic Intelligence Delivered</span>
+          <span className="text-shimmer">{t.final.title}</span>
         </h2>
         <p className="mt-6 max-w-xl text-[16px] text-muted-foreground leading-relaxed">
-          From market intelligence to engineering execution. Completely autonomous. Validated by FLOW. Ready for enterprise delivery.
+          {t.final.desc}
         </p>
         <button
           onClick={onRestart}
           className="mt-10 inline-flex items-center gap-2 rounded-full bg-foreground text-background px-6 py-3 text-[14px] font-medium tracking-tight hover:opacity-90 transition-opacity"
         >
-          Start Another Analysis
+          {t.final.cta}
           <span aria-hidden>→</span>
         </button>
       </div>
@@ -1018,31 +986,28 @@ function FinalScreen({ onRestart }: { onRestart?: () => void }) {
   );
 }
 
-/* --------------------------- Minimal PDF builder --------------------------- */
-
-function buildExecutivePdf(): string {
+function buildExecutivePdf(t: Dict): string {
   const lines = [
-    "PULSE Executive Report",
+    t.pdf.heading,
     "",
-    "1. Executive Summary",
-    "Prioritize AI-assisted candidate matching before redesigning the recruiting workflow.",
+    t.pdf.s1,
+    t.pdf.s1body,
     "",
-    "2. Competitive Benchmark",
-    "Stripe, Ramp and adjacent leaders analyzed across 12 capabilities.",
+    t.pdf.s2,
+    t.pdf.s2body,
     "",
-    "3. Validated Opportunities",
-    "AI Candidate Ranking - Confidence 94%",
-    "Predictive Talent Scoring - Confidence 91%",
-    "Offline Recruiting Mode - Rejected (18%)",
+    t.pdf.s3,
+    t.pdf.s3a,
+    t.pdf.s3b,
+    t.pdf.s3c,
     "",
-    "4. Business Impact",
-    "Overall Confidence: 94%. Benchmark Reliability: 95%.",
+    t.pdf.s4,
+    t.pdf.s4body,
     "",
-    "5. Engineering Roadmap",
-    "Phased delivery of validated capabilities, ready for sprint planning.",
+    t.pdf.s5,
+    t.pdf.s5body,
   ];
 
-  // Very small hand-rolled PDF
   const header = "%PDF-1.4\n";
   const objects: string[] = [];
   const addObj = (body: string) => {
@@ -1061,13 +1026,13 @@ function buildExecutivePdf(): string {
       .join("") +
     "ET";
 
-  addObj("<< /Type /Catalog /Pages 2 0 R >>"); // 1
-  addObj("<< /Type /Pages /Kids [3 0 R] /Count 1 >>"); // 2
+  addObj("<< /Type /Catalog /Pages 2 0 R >>");
+  addObj("<< /Type /Pages /Kids [3 0 R] /Count 1 >>");
   addObj(
     "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>"
-  ); // 3
-  addObj(`<< /Length ${contentStream.length} >>\nstream\n${contentStream}\nendstream`); // 4
-  addObj("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"); // 5
+  );
+  addObj(`<< /Length ${contentStream.length} >>\nstream\n${contentStream}\nendstream`);
+  addObj("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
 
   let output = header;
   const offsets: number[] = [];
