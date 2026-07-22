@@ -4,7 +4,7 @@ import { translations, type Lang } from "@/lib/pulse-i18n";
 import { TopBar } from "@/components/pulse/TopBar";
 import { Timeline } from "@/components/pulse/Timeline";
 import { Hero } from "@/components/pulse/Hero";
-import { Phase1Connect } from "@/components/pulse/Phase1Connect";
+import { Phase1Connect, type JiraState } from "@/components/pulse/Phase1Connect";
 import { Phase2Brief } from "@/components/pulse/Phase2Brief";
 import { Phase3Clarify } from "@/components/pulse/Phase3Clarify";
 import { CognitiveTransition } from "@/components/pulse/CognitiveTransition";
@@ -38,10 +38,14 @@ type Stage = "hero" | "p1" | "p2" | "p3" | "transition" | "engine" | "flow";
 function PulseExperience() {
   const [lang, setLang] = useState<Lang>("en");
   const [stage, setStage] = useState<Stage>("hero");
+
+  // Preserved user state across back navigation
+  const [jiraState, setJiraState] = useState<JiraState>("idle");
   const [brief, setBrief] = useState("");
+  const [answers, setAnswers] = useState<(string | null)[]>([null, null, null]);
+
   const t = translations[lang];
 
-  // Map stage to timeline
   const stageMeta: Record<Stage, { active: number; completed: number }> = {
     hero: { active: 0, completed: -1 },
     p1: { active: 0, completed: -1 },
@@ -53,9 +57,13 @@ function PulseExperience() {
   };
   const { active, completed } = stageMeta[stage];
 
-  const restart = () => setStage("hero");
+  const restart = () => {
+    setJiraState("idle");
+    setBrief("");
+    setAnswers([null, null, null]);
+    setStage("hero");
+  };
 
-  // Scroll to top on stage change
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [stage]);
@@ -70,9 +78,17 @@ function PulseExperience() {
             <Hero t={t} onStart={() => setStage("p1")} />
           </div>
         ) : stage === "engine" ? (
-          <CognitiveEngine onValidate={() => setStage("flow")} />
+          <CognitiveEngine
+            t={t}
+            onValidate={() => setStage("flow")}
+            onBack={() => setStage("p3")}
+          />
         ) : stage === "flow" ? (
-          <FlowDelivery onRestart={restart} />
+          <FlowDelivery
+            t={t}
+            onRestart={restart}
+            onBackToEngine={() => setStage("engine")}
+          />
         ) : (
           <div className="mx-auto max-w-[1240px] px-6 lg:px-10 pt-14 pb-24">
             <div className="grid lg:grid-cols-[220px_1fr] gap-14">
@@ -81,22 +97,34 @@ function PulseExperience() {
               </aside>
               <div key={stage} className="min-w-0 animate-soft-in">
                 {stage === "p1" && (
-                  <Phase1Connect t={t} onContinue={() => setStage("p2")} />
+                  <Phase1Connect
+                    t={t}
+                    state={jiraState}
+                    onStateChange={setJiraState}
+                    onContinue={() => setStage("p2")}
+                    onBack={() => setStage("hero")}
+                  />
                 )}
                 {stage === "p2" && (
                   <Phase2Brief
                     t={t}
+                    value={brief}
+                    onValueChange={setBrief}
                     onContinue={(b) => {
                       setBrief(b);
                       setStage("p3");
                     }}
+                    onBack={() => setStage("p1")}
                   />
                 )}
                 {stage === "p3" && (
                   <Phase3Clarify
                     t={t}
                     brief={brief}
+                    answers={answers}
+                    onAnswersChange={setAnswers}
                     onContinue={() => setStage("transition")}
+                    onBack={() => setStage("p2")}
                   />
                 )}
               </div>
