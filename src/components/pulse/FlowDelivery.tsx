@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dict } from "@/lib/pulse-i18n";
 import type { ScenarioData } from "@/lib/scenarios";
+import type { MarketAnalysisResult, FlowValidationResult, DeliveryArtifactsResult } from "@/lib/gemini/types";
+import { jsPDF } from "jspdf";
 import { PulseMark } from "./PulseMark";
 import { BackButton } from "./BackButton";
 
@@ -15,11 +17,25 @@ type Phase =
 export function FlowDelivery({
   t,
   scenario,
+  flowValidationLoading,
+  flowValidationError,
+  deliveryArtifactsLoading,
+  deliveryArtifactsError,
+  marketAnalysis,
+  flowValidation,
+  deliveryArtifacts,
   onRestart,
   onBackToEngine,
 }: {
   t: Dict;
   scenario: ScenarioData;
+  flowValidationLoading?: boolean;
+  flowValidationError?: string | null;
+  deliveryArtifactsLoading?: boolean;
+  deliveryArtifactsError?: string | null;
+  marketAnalysis?: MarketAnalysisResult | null;
+  flowValidation?: FlowValidationResult | null;
+  deliveryArtifacts?: DeliveryArtifactsResult | null;
   onRestart?: () => void;
   onBackToEngine?: () => void;
 }) {
@@ -51,6 +67,8 @@ export function FlowDelivery({
         <FlowValidation
           t={t}
           scenario={scenario}
+          loading={flowValidationLoading}
+          error={flowValidationError}
           onGenerate={() => setPhase("blueprint-transition")}
           onBack={onBackToEngine}
         />
@@ -69,6 +87,11 @@ export function FlowDelivery({
         <DeliveryHub
           t={t}
           scenario={scenario}
+          loading={deliveryArtifactsLoading}
+          error={deliveryArtifactsError}
+          marketAnalysis={marketAnalysis}
+          flowValidation={flowValidation}
+          deliveryArtifacts={deliveryArtifacts}
           onFinish={() => setPhase("final")}
           onRestart={onRestart}
           onBack={() => setPhase("blueprint")}
@@ -76,21 +99,18 @@ export function FlowDelivery({
       )}
 
       {phase === "final" && (
-        <FinalScreen t={t} scenario={scenario} onRestart={onRestart} onBack={() => setPhase("delivery")} />
+        <FinalScreen
+          t={t}
+          scenario={scenario}
+          onRestart={onRestart}
+          onBack={() => setPhase("delivery")}
+        />
       )}
     </>
   );
 }
 
-function Overlay({
-  badge,
-  lines,
-  onDone,
-}: {
-  badge: string;
-  lines: string[];
-  onDone: () => void;
-}) {
+function Overlay({ badge, lines, onDone }: { badge: string; lines: string[]; onDone: () => void }) {
   const [step, setStep] = useState(0);
   useEffect(() => {
     if (step >= lines.length - 1) {
@@ -122,9 +142,7 @@ function Overlay({
               transform: `translateY(${(i - step) * 12}px)`,
             }}
           >
-            <span className="text-shimmer text-[16px] font-medium tracking-tight">
-              {line}
-            </span>
+            <span className="text-shimmer text-[16px] font-medium tracking-tight">{line}</span>
           </div>
         ))}
       </div>
@@ -170,8 +188,8 @@ function TimelineNav({
                   s === "completed"
                     ? "bg-foreground border-foreground"
                     : s === "running"
-                    ? "bg-background border-foreground"
-                    : "bg-background border-border",
+                      ? "bg-background border-foreground"
+                      : "bg-background border-border",
                 ].join(" ")}
               >
                 {s === "completed" ? (
@@ -217,11 +235,15 @@ function TimelineNav({
 function FlowValidation({
   t,
   scenario,
+  loading,
+  error,
   onGenerate,
   onBack,
 }: {
   t: Dict;
   scenario: ScenarioData;
+  loading?: boolean;
+  error?: string | null;
   onGenerate: () => void;
   onBack?: () => void;
 }) {
@@ -229,6 +251,8 @@ function FlowValidation({
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
+    if (loading) return;
+
     const schedule = [700, 500, 500, 500, 500, 900, 900, 900, 900];
     let acc = 0;
     schedule.forEach((delay, i) => {
@@ -239,7 +263,7 @@ function FlowValidation({
       timers.current.forEach(clearTimeout);
       timers.current = [];
     };
-  }, []);
+  }, [loading]);
 
   const states = useMemo(() => {
     return t.engine.timeline.map((_, i) => {
@@ -254,153 +278,201 @@ function FlowValidation({
       <div className="mb-6">
         <BackButton t={t} onBack={onBack} />
       </div>
-      <div className="grid lg:grid-cols-[240px_1fr] gap-14">
-        <aside>
-          <TimelineNav t={t} states={states} />
-        </aside>
-        <div className="min-w-0 flex flex-col gap-20">
-          <div className="animate-soft-in flex flex-col gap-4">
-            <div className="inline-flex items-center gap-2.5 self-start rounded-full border border-violet-500/30 bg-violet-500/10 pl-2 pr-4 py-1.5">
-              <span className="h-2 w-2 rounded-full bg-violet-500 animate-pulse" />
-              <span className="text-[11px] uppercase tracking-[0.18em] font-medium text-violet-600 dark:text-violet-300">
-                {t.flow.badge}
-              </span>
+
+      {error && (
+        <div className="mb-6 rounded-xl border border-destructive/30 bg-destructive/5 p-4 flex items-start gap-3 animate-soft-in">
+          <svg
+            viewBox="0 0 20 20"
+            className="h-5 w-5 text-destructive shrink-0 mt-0.5"
+            fill="currentColor"
+          >
+            <path
+              fillRule="evenodd"
+              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+              clipRule="evenodd"
+            />
+          </svg>
+          <div className="flex flex-col gap-1">
+            <div className="text-[13px] font-medium text-destructive">FLOW Validation Error</div>
+            <div className="text-[12.5px] text-muted-foreground leading-relaxed">
+              {error}. Displaying fallback data instead.
             </div>
-            <h2 className="text-[34px] sm:text-[42px] leading-[1.05] font-semibold tracking-[-0.02em] text-foreground max-w-3xl">
-              <span className="text-shimmer">{t.flow.title}</span>
-            </h2>
-            <p className="text-[15px] text-muted-foreground max-w-2xl">
-              {t.flow.subtitle}
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex flex-col items-center justify-center gap-6 py-24 animate-soft-in">
+          <PulseMark size={48} />
+          <div className="flex flex-col items-center gap-2 text-center">
+            <h3 className="text-[22px] font-semibold tracking-tight text-foreground">
+              Validating opportunities
+            </h3>
+            <p className="text-[14px] text-muted-foreground max-w-md">
+              Gemini is analyzing market evidence and validating business opportunities. This may
+              take a few seconds.
             </p>
           </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            {scenario.flowPanels.map((p, i) => (
-              <div
-                key={p.label}
-                className={[
-                  "rounded-2xl border border-border bg-surface-elevated/60 p-5 transition-all duration-700",
-                  step > i ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2",
-                ].join(" ")}
-              >
-                <div className="text-[28px] font-semibold tracking-tight text-foreground">
-                  {p.value}
-                </div>
-                <div className="mt-1 text-[11px] uppercase tracking-[0.14em] text-muted-foreground/80">
-                  {p.label}
-                </div>
-              </div>
+          <div className="flex items-center gap-1.5 mt-2">
+            {[0, 1, 2].map((i) => (
+              <span
+                key={i}
+                className="h-2 w-2 rounded-full bg-foreground/40 animate-pulse"
+                style={{ animationDelay: `${i * 200}ms` }}
+              />
             ))}
           </div>
-
-          {step >= 5 && (
-            <section className="flex flex-col gap-6 animate-soft-in">
-              <SectionTitle overline={t.flow.evidenceOverline} title={t.flow.evidenceTitle} />
-              <div className="grid md:grid-cols-2 gap-4">
-                <EvidenceCard
-                  t={t}
-                  title={scenario.flowCases[0].title}
-                  status="validated"
-                  confidence="94%"
-                  evidence={scenario.flowCases[0].evidence}
-                />
-                <EvidenceCard
-                  t={t}
-                  title={scenario.flowCases[1].title}
-                  status="rejected"
-                  confidence="18%"
-                  evidence={scenario.flowCases[1].evidence}
-                  reason={scenario.flowCases[1].reason}
-                />
-              </div>
-            </section>
-          )}
-
-          {step >= 6 && (
-            <section className="flex flex-col gap-6 animate-soft-in">
-              <SectionTitle overline={t.flow.matrixOverline} title={t.flow.matrixTitle} />
-              <div className="grid md:grid-cols-3 gap-4">
-                {scenario.flowMatrix.map((m, i) => (
-                  <MatrixCard
-                    key={m.opportunity}
-                    t={t}
-                    opportunity={m.opportunity}
-                    value={m.value}
-                    confidence={m.confidence}
-                    complexity={m.complexity}
-                    status={i < 2 ? "validated" : "rejected"}
-                    reason={m.reason}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
-
-          {step >= 7 && (
-            <section className="animate-soft-in">
-              <div className="rounded-3xl border border-border bg-surface-elevated/60 p-8 md:p-10">
-                <div className="grid md:grid-cols-[1fr_auto] gap-8 items-center">
-                  <div className="flex flex-col gap-4">
-                    <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 font-medium">
-                      {t.flow.confidenceEngine}
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                      {scenario.confidenceMini.map((m) => (
-                        <MiniStat key={m.label} label={m.label} value={m.value} />
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-center md:items-end gap-1">
-                    <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/70 font-medium">
-                      {t.flow.overallConfidence}
-                    </div>
-                    <div className="text-[56px] leading-none font-semibold tracking-tight text-foreground">
-                      {scenario.overallConfidence}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {step >= 8 && (
-            <section className="animate-soft-in">
-              <SectionTitle overline={t.flow.executiveOverline} title={t.flow.executiveTitle} />
-              <div className="mt-6 relative overflow-hidden rounded-3xl border border-border bg-foreground text-background p-8 md:p-12">
-                <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-violet-500/20 blur-3xl" aria-hidden />
-                <div className="relative flex flex-col gap-6">
-                  <div className="inline-flex items-center gap-2 self-start rounded-full border border-background/20 bg-background/10 px-3 py-1">
-                    <PulseMark size={14} />
-                    <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-background/80">
-                      {t.flow.recommendationBadge}
-                    </span>
-                  </div>
-                  <h3 className="text-[28px] sm:text-[34px] leading-[1.1] font-semibold tracking-[-0.02em] max-w-3xl">
-                    {scenario.recommendationTitle}
-                  </h3>
-                  <ul className="grid sm:grid-cols-2 gap-x-8 gap-y-2 text-[14px] text-background/80">
-                    {scenario.reasons.map((r) => (
-                      <li key={r} className="flex items-start gap-2">
-                        <span className="mt-[7px] h-1 w-1 rounded-full bg-background/70" />
-                        {r}
-                      </li>
-                    ))}
-                  </ul>
-                  {step >= 9 && (
-                    <button
-                      onClick={onGenerate}
-                      className="mt-4 self-start inline-flex items-center gap-2 rounded-full bg-background text-foreground px-6 py-3 text-[14px] font-medium tracking-tight hover:opacity-90 transition-opacity animate-soft-in"
-                    >
-                      {t.flow.generateBlueprint}
-                      <span aria-hidden>→</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-            </section>
-          )}
         </div>
-      </div>
+      ) : (
+        <div className="grid lg:grid-cols-[240px_1fr] gap-14">
+          <aside>
+            <TimelineNav t={t} states={states} />
+          </aside>
+          <div className="min-w-0 flex flex-col gap-20">
+            <div className="animate-soft-in flex flex-col gap-4">
+              <div className="inline-flex items-center gap-2.5 self-start rounded-full border border-violet-500/30 bg-violet-500/10 pl-2 pr-4 py-1.5">
+                <span className="h-2 w-2 rounded-full bg-violet-500 animate-pulse" />
+                <span className="text-[11px] uppercase tracking-[0.18em] font-medium text-violet-600 dark:text-violet-300">
+                  {t.flow.badge}
+                </span>
+              </div>
+              <h2 className="text-[34px] sm:text-[42px] leading-[1.05] font-semibold tracking-[-0.02em] text-foreground max-w-3xl">
+                <span className="text-shimmer">{t.flow.title}</span>
+              </h2>
+              <p className="text-[15px] text-muted-foreground max-w-2xl">{t.flow.subtitle}</p>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              {scenario.flowPanels.map((p, i) => (
+                <div
+                  key={p.label}
+                  className={[
+                    "rounded-2xl border border-border bg-surface-elevated/60 p-5 transition-all duration-700",
+                    step > i ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2",
+                  ].join(" ")}
+                >
+                  <div className="text-[28px] font-semibold tracking-tight text-foreground">
+                    {p.value}
+                  </div>
+                  <div className="mt-1 text-[11px] uppercase tracking-[0.14em] text-muted-foreground/80">
+                    {p.label}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {step >= 5 && (
+              <section className="flex flex-col gap-6 animate-soft-in">
+                <SectionTitle overline={t.flow.evidenceOverline} title={t.flow.evidenceTitle} />
+                <div className="grid md:grid-cols-2 gap-4">
+                  <EvidenceCard
+                    t={t}
+                    title={scenario.flowCases[0].title}
+                    status="validated"
+                    confidence="94%"
+                    evidence={scenario.flowCases[0].evidence}
+                  />
+                  <EvidenceCard
+                    t={t}
+                    title={scenario.flowCases[1].title}
+                    status="rejected"
+                    confidence="18%"
+                    evidence={scenario.flowCases[1].evidence}
+                    reason={scenario.flowCases[1].reason}
+                  />
+                </div>
+              </section>
+            )}
+
+            {step >= 6 && (
+              <section className="flex flex-col gap-6 animate-soft-in">
+                <SectionTitle overline={t.flow.matrixOverline} title={t.flow.matrixTitle} />
+                <div className="grid md:grid-cols-3 gap-4">
+                  {scenario.flowMatrix.map((m, i) => (
+                    <MatrixCard
+                      key={m.opportunity}
+                      t={t}
+                      opportunity={m.opportunity}
+                      value={m.value}
+                      confidence={m.confidence}
+                      complexity={m.complexity}
+                      status={i < 2 ? "validated" : "rejected"}
+                      reason={m.reason}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {step >= 7 && (
+              <section className="animate-soft-in">
+                <div className="rounded-3xl border border-border bg-surface-elevated/60 p-8 md:p-10">
+                  <div className="grid md:grid-cols-[1fr_auto] gap-8 items-center">
+                    <div className="flex flex-col gap-4">
+                      <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 font-medium">
+                        {t.flow.confidenceEngine}
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                        {scenario.confidenceMini.map((m) => (
+                          <MiniStat key={m.label} label={m.label} value={m.value} />
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-center md:items-end gap-1">
+                      <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/70 font-medium">
+                        {t.flow.overallConfidence}
+                      </div>
+                      <div className="text-[56px] leading-none font-semibold tracking-tight text-foreground">
+                        {scenario.overallConfidence}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {step >= 8 && (
+              <section className="animate-soft-in">
+                <SectionTitle overline={t.flow.executiveOverline} title={t.flow.executiveTitle} />
+                <div className="mt-6 relative overflow-hidden rounded-3xl border border-border bg-foreground text-background p-8 md:p-12">
+                  <div
+                    className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-violet-500/20 blur-3xl"
+                    aria-hidden
+                  />
+                  <div className="relative flex flex-col gap-6">
+                    <div className="inline-flex items-center gap-2 self-start rounded-full border border-background/20 bg-background/10 px-3 py-1">
+                      <PulseMark size={14} />
+                      <span className="text-[10px] uppercase tracking-[0.2em] font-medium text-background/80">
+                        {t.flow.recommendationBadge}
+                      </span>
+                    </div>
+                    <h3 className="text-[28px] sm:text-[34px] leading-[1.1] font-semibold tracking-[-0.02em] max-w-3xl">
+                      {scenario.recommendationTitle}
+                    </h3>
+                    <ul className="grid sm:grid-cols-2 gap-x-8 gap-y-2 text-[14px] text-background/80">
+                      {scenario.reasons.map((r) => (
+                        <li key={r} className="flex items-start gap-2">
+                          <span className="mt-[7px] h-1 w-1 rounded-full bg-background/70" />
+                          {r}
+                        </li>
+                      ))}
+                    </ul>
+                    {step >= 9 && (
+                      <button
+                        onClick={onGenerate}
+                        className="mt-4 self-start inline-flex items-center gap-2 rounded-full bg-background text-foreground px-6 py-3 text-[14px] font-medium tracking-tight hover:opacity-90 transition-opacity animate-soft-in"
+                      >
+                        {t.flow.generateBlueprint}
+                        <span aria-hidden>→</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </section>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -451,7 +523,10 @@ function EvidenceCard({
       </div>
       <div className="grid grid-cols-2 gap-4">
         <MiniStat label={t.flow.confidenceLabel} value={confidence} />
-        <MiniStat label={reason ? t.flow.reasonLabel : t.flow.evidenceLabel} value={reason ?? t.flow.verified} />
+        <MiniStat
+          label={reason ? t.flow.reasonLabel : t.flow.evidenceLabel}
+          value={reason ?? t.flow.verified}
+        />
       </div>
       <p className="text-[13px] text-muted-foreground leading-relaxed">{evidence}</p>
     </div>
@@ -513,7 +588,9 @@ function Row({ label, value }: { label: string; value: string }) {
 function MiniStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-1">
-      <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70">{label}</div>
+      <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70">
+        {label}
+      </div>
       <div className="text-[15px] font-medium text-foreground tracking-tight">{value}</div>
     </div>
   );
@@ -554,7 +631,7 @@ function Blueprint({
         if (i === 8) return ready ? "completed" : "running";
         return "pending" as const;
       }),
-    [ready, t.engine.timeline]
+    [ready, t.engine.timeline],
   );
 
   return (
@@ -577,9 +654,7 @@ function Blueprint({
             <h2 className="text-[34px] sm:text-[42px] leading-[1.05] font-semibold tracking-[-0.02em] text-foreground max-w-3xl">
               <span className="text-shimmer">{t.blueprint.title}</span>
             </h2>
-            <p className="text-[15px] text-muted-foreground max-w-2xl">
-              {t.blueprint.subtitle}
-            </p>
+            <p className="text-[15px] text-muted-foreground max-w-2xl">{t.blueprint.subtitle}</p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-3">
@@ -614,7 +689,10 @@ function Blueprint({
           {ready && (
             <section className="animate-soft-in flex flex-col gap-8">
               <div className="rounded-3xl border border-border bg-foreground text-background p-8 md:p-10 relative overflow-hidden">
-                <div className="absolute -top-24 -left-24 h-64 w-64 rounded-full bg-emerald-500/15 blur-3xl" aria-hidden />
+                <div
+                  className="absolute -top-24 -left-24 h-64 w-64 rounded-full bg-emerald-500/15 blur-3xl"
+                  aria-hidden
+                />
                 <div className="relative flex flex-col md:flex-row md:items-center gap-6 justify-between">
                   <div>
                     <div className="text-[10px] uppercase tracking-[0.22em] text-background/60 font-medium mb-2">
@@ -638,7 +716,10 @@ function Blueprint({
               </div>
 
               <div>
-                <SectionTitle overline={t.blueprint.artifactsOverline} title={t.blueprint.artifactsTitle} />
+                <SectionTitle
+                  overline={t.blueprint.artifactsOverline}
+                  title={t.blueprint.artifactsTitle}
+                />
                 <div className="mt-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                   {t.blueprint.artifacts.map((a, i) => (
                     <div
@@ -677,7 +758,15 @@ function ArtifactIcon({ index }: { index: number }) {
   ];
   return (
     <div className="h-9 w-9 rounded-xl border border-border bg-background flex items-center justify-center text-muted-foreground group-hover:text-foreground transition-colors shrink-0">
-      <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+      <svg
+        viewBox="0 0 20 20"
+        className="h-4 w-4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
         <path d={icons[index % icons.length]} />
       </svg>
     </div>
@@ -687,12 +776,22 @@ function ArtifactIcon({ index }: { index: number }) {
 function DeliveryHub({
   t,
   scenario,
+  loading,
+  error,
+  marketAnalysis,
+  flowValidation,
+  deliveryArtifacts,
   onFinish,
   onRestart,
   onBack,
 }: {
   t: Dict;
   scenario: ScenarioData;
+  loading?: boolean;
+  error?: string | null;
+  marketAnalysis?: MarketAnalysisResult | null;
+  flowValidation?: FlowValidationResult | null;
+  deliveryArtifacts?: DeliveryArtifactsResult | null;
   onFinish: () => void;
   onRestart?: () => void;
   onBack?: () => void;
@@ -708,13 +807,13 @@ function DeliveryHub({
         if (i === 9) return "running" as const;
         return "pending" as const;
       }),
-    [t.engine.timeline]
+    [t.engine.timeline],
   );
 
   const jiraLines = scenario.jiraLines;
 
   const publishJira = () => {
-    if (jiraStep >= 0) return;
+    if (jiraStep >= 0 || loading) return;
     setJiraStep(0);
     let acc = 0;
     jiraLines.forEach((_, i) => {
@@ -727,16 +826,53 @@ function DeliveryHub({
     if (pdfState !== "idle") return;
     setPdfState("generating");
     setTimeout(() => {
-      const pdf = buildExecutivePdf(t, scenario);
-      const blob = new Blob([pdf], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "PULSE-Executive-Report.pdf";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      const doc = new jsPDF({ unit: "pt", format: "a4" });
+      const margin = 60;
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const maxLineWidth = pageWidth - margin * 2;
+      let y = margin;
+
+      const addHeading = (text: string, size: number) => {
+        if (y > 720) { doc.addPage(); y = margin; }
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(size);
+        doc.text(text, margin, y);
+        y += size + 10;
+      };
+
+      const addBody = (text: string) => {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(11);
+        const lines = doc.splitTextToSize(text, maxLineWidth);
+        for (const line of lines) {
+          if (y > 760) { doc.addPage(); y = margin; }
+          doc.text(line, margin, y);
+          y += 16;
+        }
+        y += 8;
+      };
+
+      addHeading(t.pdf.heading, 18);
+      y += 4;
+
+      addHeading(t.pdf.s1, 13);
+      addBody(scenario.pdf.s1body);
+
+      addHeading(t.pdf.s2, 13);
+      addBody(scenario.pdf.s2body);
+
+      addHeading(t.pdf.s3, 13);
+      addBody(scenario.pdf.s3a);
+      addBody(scenario.pdf.s3b);
+      addBody(scenario.pdf.s3c);
+
+      addHeading(t.pdf.s4, 13);
+      addBody(scenario.pdf.s4body);
+
+      addHeading(t.pdf.s5, 13);
+      addBody(scenario.pdf.s5body);
+
+      doc.save("PULSE-Executive-Report.pdf");
       setPdfState("done");
     }, 2200);
   };
@@ -748,6 +884,54 @@ function DeliveryHub({
       <div className="mb-6">
         <BackButton t={t} onBack={onBack} />
       </div>
+
+      {error && (
+        <div className="mb-6 rounded-xl border border-destructive/30 bg-destructive/5 p-4 flex items-start gap-3 animate-soft-in">
+          <svg
+            viewBox="0 0 20 20"
+            className="h-5 w-5 text-destructive shrink-0 mt-0.5"
+            fill="currentColor"
+          >
+            <path
+              fillRule="evenodd"
+              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+              clipRule="evenodd"
+            />
+          </svg>
+          <div className="flex flex-col gap-1">
+            <div className="text-[13px] font-medium text-destructive">
+              Delivery Artifacts Error
+            </div>
+            <div className="text-[12.5px] text-muted-foreground leading-relaxed">
+              {error}. Displaying fallback data instead.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex flex-col items-center justify-center gap-6 py-24 animate-soft-in">
+          <PulseMark size={48} />
+          <div className="flex flex-col items-center gap-2 text-center">
+            <h3 className="text-[22px] font-semibold tracking-tight text-foreground">
+              Generating delivery artifacts
+            </h3>
+            <p className="text-[14px] text-muted-foreground max-w-md">
+              Gemini is composing the executive report and Jira publish
+              messages. This may take a few seconds.
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 mt-2">
+            {[0, 1, 2].map((i) => (
+              <span
+                key={i}
+                className="h-2 w-2 rounded-full bg-foreground/40 animate-pulse"
+                style={{ animationDelay: `${i * 200}ms` }}
+              />
+            ))}
+          </div>
+        </div>
+      ) : (
       <div className="grid lg:grid-cols-[240px_1fr] gap-14">
         <aside>
           <TimelineNav t={t} states={states} />
@@ -764,9 +948,7 @@ function DeliveryHub({
             <h2 className="text-[34px] sm:text-[42px] leading-[1.05] font-semibold tracking-[-0.02em] text-foreground max-w-3xl">
               <span className="text-shimmer">{t.delivery.title}</span>
             </h2>
-            <p className="text-[15px] text-muted-foreground max-w-2xl">
-              {t.delivery.subtitle}
-            </p>
+            <p className="text-[15px] text-muted-foreground max-w-2xl">{t.delivery.subtitle}</p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
@@ -779,7 +961,13 @@ function DeliveryHub({
               disabled={jiraStep >= 0}
               running={jiraStep >= 0 && jiraStep < jiraLines.length}
               done={jiraStep >= jiraLines.length}
-              cta={jiraStep >= jiraLines.length ? t.delivery.jira.published : jiraStep >= 0 ? t.delivery.jira.publishing : t.delivery.jira.publish}
+              cta={
+                jiraStep >= jiraLines.length
+                  ? t.delivery.jira.published
+                  : jiraStep >= 0
+                    ? t.delivery.jira.publishing
+                    : t.delivery.jira.publish
+              }
             >
               {jiraStep >= 0 && (
                 <div className="mt-5 flex flex-col gap-1.5">
@@ -797,13 +985,19 @@ function DeliveryHub({
                           jiraStep > i
                             ? "bg-emerald-500 border-emerald-500 text-background"
                             : jiraStep === i
-                            ? "border-foreground"
-                            : "border-border",
+                              ? "border-foreground"
+                              : "border-border",
                         ].join(" ")}
                       >
                         {jiraStep > i ? (
                           <svg viewBox="0 0 10 10" className="h-2 w-2" fill="none">
-                            <path d="M2 5.2L4.2 7.2L8 3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                            <path
+                              d="M2 5.2L4.2 7.2L8 3"
+                              stroke="currentColor"
+                              strokeWidth="1.6"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
                           </svg>
                         ) : jiraStep === i ? (
                           <span className="h-1 w-1 rounded-full bg-foreground animate-pulse" />
@@ -824,7 +1018,13 @@ function DeliveryHub({
               disabled={pdfState !== "idle"}
               running={pdfState === "generating"}
               done={pdfState === "done"}
-              cta={pdfState === "done" ? t.delivery.pdf.done : pdfState === "generating" ? t.delivery.pdf.generating : t.delivery.pdf.generate}
+              cta={
+                pdfState === "done"
+                  ? t.delivery.pdf.done
+                  : pdfState === "generating"
+                    ? t.delivery.pdf.generating
+                    : t.delivery.pdf.generate
+              }
             >
               {pdfState !== "idle" && (
                 <div className="mt-5 text-[12px] text-muted-foreground flex items-center gap-2">
@@ -840,9 +1040,17 @@ function DeliveryHub({
               subtitle={t.delivery.pkg.subtitle}
               cta={t.delivery.pkg.cta}
               onClick={() => {
-                const blob = new Blob([JSON.stringify({ package: "PULSE Engineering Package", scenario: scenario.title, artifacts: t.blueprint.artifacts }, null, 2)], {
-                  type: "application/json",
-                });
+                const pkg = {
+                  package: "PULSE Engineering Package",
+                  brief: scenario.title,
+                  marketAnalysis: marketAnalysis ?? null,
+                  flowValidation: flowValidation ?? null,
+                  deliveryArtifacts: deliveryArtifacts ?? null,
+                };
+                const blob = new Blob(
+                  [JSON.stringify(pkg, null, 2)],
+                  { type: "application/json" },
+                );
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a");
                 a.href = url;
@@ -889,6 +1097,7 @@ function DeliveryHub({
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }
@@ -945,8 +1154,8 @@ function ActionCard({
             done
               ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
               : running
-              ? "bg-foreground/90 text-background opacity-80"
-              : "bg-foreground text-background hover:opacity-90",
+                ? "bg-foreground/90 text-background opacity-80"
+                : "bg-foreground text-background hover:opacity-90",
             disabled && !running ? "cursor-not-allowed" : "",
           ].join(" ")}
         >
@@ -998,72 +1207,4 @@ function FinalScreen({
       </div>
     </div>
   );
-}
-
-function buildExecutivePdf(t: Dict, scenario: ScenarioData): string {
-  const lines = [
-    t.pdf.heading,
-    "",
-    t.pdf.s1,
-    scenario.pdf.s1body,
-    "",
-    t.pdf.s2,
-    scenario.pdf.s2body,
-    "",
-    t.pdf.s3,
-    scenario.pdf.s3a,
-    scenario.pdf.s3b,
-    scenario.pdf.s3c,
-    "",
-    t.pdf.s4,
-    scenario.pdf.s4body,
-    "",
-    t.pdf.s5,
-    scenario.pdf.s5body,
-  ];
-
-  const header = "%PDF-1.4\n";
-  const objects: string[] = [];
-  const addObj = (body: string) => {
-    objects.push(body);
-    return objects.length;
-  };
-
-  const contentStream =
-    "BT\n/F1 14 Tf\n72 780 Td\n" +
-    lines
-      .map((l, i) =>
-        i === 0
-          ? `(${escapePdf(l)}) Tj\n0 -28 Td\n`
-          : `(${escapePdf(l)}) Tj\n0 -18 Td\n`
-      )
-      .join("") +
-    "ET";
-
-  addObj("<< /Type /Catalog /Pages 2 0 R >>");
-  addObj("<< /Type /Pages /Kids [3 0 R] /Count 1 >>");
-  addObj(
-    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>"
-  );
-  addObj(`<< /Length ${contentStream.length} >>\nstream\n${contentStream}\nendstream`);
-  addObj("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
-
-  let output = header;
-  const offsets: number[] = [];
-  objects.forEach((body, i) => {
-    offsets.push(output.length);
-    output += `${i + 1} 0 obj\n${body}\nendobj\n`;
-  });
-  const xrefStart = output.length;
-  output += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
-  offsets.forEach((o) => {
-    output += `${o.toString().padStart(10, "0")} 00000 n \n`;
-  });
-  output += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`;
-
-  return output;
-}
-
-function escapePdf(s: string) {
-  return s.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
 }

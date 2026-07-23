@@ -18,6 +18,7 @@ dist-ssr
 # Vercel build output
 .vercel/
 *.local
+.env
 
 # Wrangler / Cloudflare
 .wrangler/

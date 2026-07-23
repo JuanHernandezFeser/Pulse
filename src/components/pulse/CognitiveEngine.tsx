@@ -9,26 +9,26 @@ const FINAL_STEP = 14;
 export function CognitiveEngine({
   t,
   scenario,
+  analysisLoading,
+  analysisError,
   onValidate,
   onBack,
 }: {
   t: Dict;
   scenario: ScenarioData;
+  analysisLoading?: boolean;
+  analysisError?: string | null;
   onValidate?: () => void;
   onBack?: () => void;
 }) {
   const [step, setStep] = useState(0);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
+  // Only start the animation when data is ready
   useEffect(() => {
-    const schedule = [
-      600, 700, 700, 900,
-      900, 500, 500,
-      900, 1400,
-      900,
-      1200, 1000,
-      900, 900,
-    ];
+    if (analysisLoading) return;
+
+    const schedule = [600, 700, 700, 900, 900, 500, 500, 900, 1400, 900, 1200, 1000, 900, 900];
     let acc = 0;
     schedule.forEach((delay, i) => {
       acc += delay;
@@ -39,7 +39,7 @@ export function CognitiveEngine({
       timers.current.forEach(clearTimeout);
       timers.current = [];
     };
-  }, []);
+  }, [analysisLoading]);
 
   const timelineState = useMemo(() => {
     return t.engine.timeline.map((_, i) => {
@@ -56,33 +56,90 @@ export function CognitiveEngine({
       <div className="mb-6">
         <BackButton t={t} onBack={onBack} />
       </div>
-      <div className="grid lg:grid-cols-[240px_1fr] gap-14">
-        <aside>
-          <EngineTimeline t={t} states={timelineState} />
-        </aside>
 
-        <div className="min-w-0 flex flex-col gap-20">
-          <EngineHeader t={t} />
+      {analysisError && <AnalysisErrorBanner error={analysisError} />}
 
-          <MarketModeling t={t} scenario={scenario} step={step} />
+      {analysisLoading ? (
+        <AnalysisLoading />
+      ) : (
+        <div className="grid lg:grid-cols-[240px_1fr] gap-14">
+          <aside>
+            <EngineTimeline t={t} states={timelineState} />
+          </aside>
 
-          {step >= 4 && <CompetitiveLandscape t={t} scenario={scenario} step={step} />}
+          <div className="min-w-0 flex flex-col gap-20">
+            <EngineHeader t={t} />
 
-          {step >= 7 && <Benchmark t={t} scenario={scenario} step={step} />}
+            <MarketModeling t={t} scenario={scenario} step={step} />
 
-          {step >= 9 && <FeatureGaps t={t} scenario={scenario} />}
+            {step >= 4 && <CompetitiveLandscape t={t} scenario={scenario} step={step} />}
 
-          {step >= 10 && <EvidenceCollection t={t} scenario={scenario} step={step} />}
+            {step >= 7 && <Benchmark t={t} scenario={scenario} step={step} />}
 
-          {step >= 12 && <ResultsBlock t={t} scenario={scenario} />}
+            {step >= 9 && <FeatureGaps t={t} scenario={scenario} />}
 
-          {step >= 13 && <ConfidenceEngine t={t} scenario={scenario} />}
+            {step >= 10 && <EvidenceCollection t={t} scenario={scenario} step={step} />}
 
-          {step >= 14 && <PulseConclusion t={t} onValidate={onValidate} />}
+            {step >= 12 && <ResultsBlock t={t} scenario={scenario} />}
+
+            {step >= 13 && <ConfidenceEngine t={t} scenario={scenario} />}
+
+            {step >= 14 && <PulseConclusion t={t} onValidate={onValidate} />}
+          </div>
+        </div>
+      )}
+
+      {!analysisLoading && <AskPulseFab t={t} visible={step >= FINAL_STEP} />}
+    </div>
+  );
+}
+
+function AnalysisLoading() {
+  return (
+    <div className="flex flex-col items-center justify-center gap-6 py-24 animate-soft-in">
+      <PulseMark size={48} />
+      <div className="flex flex-col items-center gap-2 text-center">
+        <h3 className="text-[22px] font-semibold tracking-tight text-foreground">
+          Analyzing market data
+        </h3>
+        <p className="text-[14px] text-muted-foreground max-w-md">
+          Gemini is generating a competitive analysis based on your brief. This may take a few
+          seconds.
+        </p>
+      </div>
+      <div className="flex items-center gap-1.5 mt-2">
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            className="h-2 w-2 rounded-full bg-foreground/40 animate-pulse"
+            style={{ animationDelay: `${i * 200}ms` }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AnalysisErrorBanner({ error }: { error: string }) {
+  return (
+    <div className="mb-6 rounded-xl border border-destructive/30 bg-destructive/5 p-4 flex items-start gap-3 animate-soft-in">
+      <svg
+        viewBox="0 0 20 20"
+        className="h-5 w-5 text-destructive shrink-0 mt-0.5"
+        fill="currentColor"
+      >
+        <path
+          fillRule="evenodd"
+          d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+          clipRule="evenodd"
+        />
+      </svg>
+      <div className="flex flex-col gap-1">
+        <div className="text-[13px] font-medium text-destructive">Gemini API Error</div>
+        <div className="text-[12.5px] text-muted-foreground leading-relaxed">
+          {error}. Displaying fallback data instead.
         </div>
       </div>
-
-      <AskPulseFab t={t} visible={step >= FINAL_STEP} />
     </div>
   );
 }
@@ -130,8 +187,8 @@ function EngineTimeline({
                   s === "completed"
                     ? "bg-foreground border-foreground"
                     : s === "running"
-                    ? "bg-background border-foreground"
-                    : "bg-background border-border",
+                      ? "bg-background border-foreground"
+                      : "bg-background border-border",
                 ].join(" ")}
               >
                 {s === "completed" ? (
@@ -212,9 +269,7 @@ function MarketModeling({ t, scenario, step }: { t: Dict; scenario: ScenarioData
             <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70 font-medium mb-2">
               {c.label}
             </div>
-            <div className="text-[15px] font-medium text-foreground leading-snug">
-              {c.value}
-            </div>
+            <div className="text-[15px] font-medium text-foreground leading-snug">{c.value}</div>
           </RevealCard>
         ))}
       </div>
@@ -250,7 +305,15 @@ function MarketModeling({ t, scenario, step }: { t: Dict; scenario: ScenarioData
   );
 }
 
-function CompetitiveLandscape({ t, scenario, step }: { t: Dict; scenario: ScenarioData; step: number }) {
+function CompetitiveLandscape({
+  t,
+  scenario,
+  step,
+}: {
+  t: Dict;
+  scenario: ScenarioData;
+  step: number;
+}) {
   return (
     <Section eyebrow={t.engine.competitive.eyebrow} title={t.engine.competitive.title}>
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
@@ -277,9 +340,13 @@ function CompetitiveLandscape({ t, scenario, step }: { t: Dict; scenario: Scenar
           <div className="text-[10px] uppercase tracking-[0.18em] text-background/60 font-medium mb-1.5">
             {t.engine.competitive.ecosystem}
           </div>
-          <div className="text-[18px] font-semibold tracking-tight">{t.engine.competitive.completed}</div>
+          <div className="text-[18px] font-semibold tracking-tight">
+            {t.engine.competitive.completed}
+          </div>
         </div>
-        <div className="text-[13px] text-background/70">{t.engine.competitive.mapped.replace("{n}", String(scenario.competitors.length))}</div>
+        <div className="text-[13px] text-background/70">
+          {t.engine.competitive.mapped.replace("{n}", String(scenario.competitors.length))}
+        </div>
       </div>
     </Section>
   );
@@ -367,9 +434,7 @@ function FeatureGaps({ t, scenario }: { t: Dict; scenario: ScenarioData }) {
             <div className="text-[40px] font-semibold tracking-[-0.03em] text-foreground leading-none tabular-nums">
               {scenario.gapValues[i]}
             </div>
-            <div className="mt-3 text-[12.5px] leading-relaxed text-muted-foreground">
-              {g.desc}
-            </div>
+            <div className="mt-3 text-[12.5px] leading-relaxed text-muted-foreground">{g.desc}</div>
           </RevealCard>
         ))}
       </div>
@@ -377,7 +442,15 @@ function FeatureGaps({ t, scenario }: { t: Dict; scenario: ScenarioData }) {
   );
 }
 
-function EvidenceCollection({ t, scenario, step }: { t: Dict; scenario: ScenarioData; step: number }) {
+function EvidenceCollection({
+  t,
+  scenario,
+  step,
+}: {
+  t: Dict;
+  scenario: ScenarioData;
+  step: number;
+}) {
   const [tick, setTick] = useState(0);
   useEffect(() => {
     if (step < 10) return;
@@ -390,7 +463,8 @@ function EvidenceCollection({ t, scenario, step }: { t: Dict; scenario: Scenario
       <div className="flex flex-wrap gap-2">
         {scenario.sources.map((s, i) => {
           const active = tick > i;
-          const state = t.engine.evidence.states[(i + Math.floor(tick / 3)) % t.engine.evidence.states.length];
+          const state =
+            t.engine.evidence.states[(i + Math.floor(tick / 3)) % t.engine.evidence.states.length];
           return (
             <div
               key={s}
