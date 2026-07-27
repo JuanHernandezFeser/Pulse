@@ -258,6 +258,7 @@ function PulseExperience() {
         ) : stage === "engine" ? (
           <CognitiveEngine
             t={t}
+            lang={lang}
             scenario={engineScenario}
             analysisLoading={!marketAnalysis && !analysisError}
             analysisError={analysisError}

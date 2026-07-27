@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Dict } from "@/lib/pulse-i18n";
+import type { Dict, Lang } from "@/lib/pulse-i18n";
 import type { ScenarioData } from "@/lib/scenarios";
 import { PulseMark } from "./PulseMark";
 import { BackButton } from "./BackButton";
+import { AskPulseChat } from "./AskPulseChat";
 
 const FINAL_STEP = 14;
 
 export function CognitiveEngine({
   t,
+  lang,
   scenario,
   analysisLoading,
   analysisError,
@@ -15,6 +17,7 @@ export function CognitiveEngine({
   onBack,
 }: {
   t: Dict;
+  lang: Lang;
   scenario: ScenarioData;
   analysisLoading?: boolean;
   analysisError?: string | null;
@@ -22,6 +25,7 @@ export function CognitiveEngine({
   onBack?: () => void;
 }) {
   const [step, setStep] = useState(0);
+  const [chatOpen, setChatOpen] = useState(false);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   // Only start the animation when data is ready
@@ -89,7 +93,17 @@ export function CognitiveEngine({
         </div>
       )}
 
-      {!analysisLoading && <AskPulseFab t={t} visible={step >= FINAL_STEP} />}
+      {!analysisLoading && (
+        <>
+          <AskPulseFab t={t} visible={step >= FINAL_STEP} onClick={() => setChatOpen(true)} />
+          <AskPulseChat
+            open={chatOpen}
+            onOpenChange={setChatOpen}
+            scenario={scenario}
+            locale={lang}
+          />
+        </>
+      )}
     </div>
   );
 }
@@ -603,10 +617,11 @@ function PulseConclusion({ t, onValidate }: { t: Dict; onValidate?: () => void }
   );
 }
 
-function AskPulseFab({ t, visible }: { t: Dict; visible: boolean }) {
+function AskPulseFab({ t, visible, onClick }: { t: Dict; visible: boolean; onClick: () => void }) {
   if (!visible) return null;
   return (
     <button
+      onClick={onClick}
       className="fixed bottom-6 right-6 z-40 inline-flex items-center gap-2.5 rounded-full border border-border bg-surface-elevated/90 backdrop-blur px-4 py-3 text-[13px] font-medium text-foreground shadow-[0_10px_40px_-15px_rgba(0,0,0,0.25)] transition-all duration-300 hover:bg-accent active:scale-[0.98] animate-soft-in"
       aria-label={t.engine.ask}
     >
