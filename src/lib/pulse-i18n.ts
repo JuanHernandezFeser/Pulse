@@ -348,6 +348,7 @@ export const translations = {
     },
     footer1: "Powered by PULSE Cognitive Intelligence",
     footer2: "Enterprise Product Intelligence Platform",
+    knowAbout: "Learn about PULSE",
   },
   es: {
     brand: "PULSE",
@@ -696,6 +697,7 @@ export const translations = {
     },
     footer1: "Powered by PULSE Cognitive Intelligence",
     footer2: "Plataforma de Inteligencia de Producto Enterprise",
+    knowAbout: "Conoce sobre PULSE",
   },
 };
 
