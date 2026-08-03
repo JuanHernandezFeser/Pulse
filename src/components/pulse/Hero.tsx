@@ -27,25 +27,33 @@ export function Hero({ t, onStart }: { t: Dict; onStart: () => void }) {
           </span>
         ))}
       </div>
-      <button
-        onClick={onStart}
-        className="group mt-12 inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3 text-[14px] font-medium text-background transition-all duration-300 hover:opacity-90 hover:gap-3 active:scale-[0.98]"
-      >
-        {t.hero.cta}
-        <svg
-          viewBox="0 0 16 16"
-          className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-0.5"
-          fill="none"
+      <div className="mt-12 flex flex-col items-center gap-3">
+        <button
+          onClick={onStart}
+          className="group inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3 text-[14px] font-medium text-background transition-all duration-300 hover:opacity-90 hover:gap-3 active:scale-[0.98]"
         >
-          <path
-            d="M3 8h10M9 4l4 4-4 4"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </button>
+          {t.hero.cta}
+          <svg
+            viewBox="0 0 16 16"
+            className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-0.5"
+            fill="none"
+          >
+            <path
+              d="M3 8h10M9 4l4 4-4 4"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+        <a
+          href="https://pulse-website-ecru.vercel.app/"
+          className="inline-flex items-center rounded-full border border-foreground bg-background px-6 py-3 text-[13.5px] font-medium text-foreground transition-all duration-300 hover:bg-foreground hover:text-background active:scale-[0.98]"
+        >
+          {t.knowAbout}
+        </a>
+      </div>
     </section>
   );
 }
